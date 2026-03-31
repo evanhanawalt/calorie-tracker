@@ -1,17 +1,356 @@
 ---
-
+import "../styles/global.css";
 ---
 
 <html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
-	</head>
-	<body>
-		<h1>Astro</h1>
-	</body>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="generator" content={Astro.generator} />
+    <title>Calorie Tracker</title>
+  </head>
+  <body class="min-h-screen bg-slate-100 text-slate-900">
+    <main class="mx-auto max-w-4xl space-y-6 p-4 md:p-8">
+      <header>
+        <h1 class="text-3xl font-bold">Calorie Tracker</h1>
+        <p class="mt-2 text-sm text-slate-600">
+          Track calories consumed and burned by day. Data is stored in your browser.
+        </p>
+      </header>
+
+      <section class="grid gap-4 rounded-xl bg-white p-4 shadow-sm md:grid-cols-2">
+        <div>
+          <h2 class="mb-3 text-lg font-semibold">Add Meal</h2>
+          <form id="food-form" class="space-y-3">
+            <label class="block text-sm">
+              <span class="mb-1 block font-medium">Date</span>
+              <input
+                id="food-date"
+                name="date"
+                type="date"
+                required
+                class="w-full rounded-md border border-slate-300 px-3 py-2"
+              />
+            </label>
+            <label class="block text-sm">
+              <span class="mb-1 block font-medium">Calories</span>
+              <input
+                id="food-calories"
+                name="calories"
+                type="number"
+                min="0"
+                step="1"
+                required
+                class="w-full rounded-md border border-slate-300 px-3 py-2"
+              />
+            </label>
+            <button
+              type="submit"
+              class="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+            >
+              Add Meal
+            </button>
+          </form>
+        </div>
+
+        <div>
+          <h2 class="mb-3 text-lg font-semibold">Add Workout</h2>
+          <form id="workout-form" class="space-y-3">
+            <label class="block text-sm">
+              <span class="mb-1 block font-medium">Date</span>
+              <input
+                id="workout-date"
+                name="date"
+                type="date"
+                required
+                class="w-full rounded-md border border-slate-300 px-3 py-2"
+              />
+            </label>
+            <label class="block text-sm">
+              <span class="mb-1 block font-medium">Calories Burned</span>
+              <input
+                id="workout-calories"
+                name="calories"
+                type="number"
+                min="0"
+                step="1"
+                required
+                class="w-full rounded-md border border-slate-300 px-3 py-2"
+              />
+            </label>
+            <button
+              type="submit"
+              class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              Add Workout
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <section class="rounded-xl bg-white p-4 shadow-sm">
+        <h2 class="mb-3 text-lg font-semibold">Backup / Restore</h2>
+        <div class="flex flex-wrap items-center gap-3">
+          <button
+            id="download-backup"
+            type="button"
+            class="rounded-md bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-900"
+          >
+            Download JSON Backup
+          </button>
+          <label class="inline-flex cursor-pointer items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50">
+            <span>Upload JSON Backup</span>
+            <input id="upload-backup" type="file" accept="application/json" class="hidden" />
+          </label>
+        </div>
+        <p id="status" class="mt-3 text-sm text-slate-600"></p>
+      </section>
+
+      <section class="rounded-xl bg-white p-4 shadow-sm">
+        <h2 class="mb-3 text-lg font-semibold">Daily Summary</h2>
+        <div id="daily-summary" class="space-y-4"></div>
+      </section>
+    </main>
+
+    <script>
+      // @ts-nocheck
+      const FOOD_STORAGE_KEY = "calorie_tracker_food_entries";
+      const WORKOUT_STORAGE_KEY = "calorie_tracker_workout_entries";
+
+      /** @typedef {{date: string, calories: number, count: number}} Entry */
+
+      /** @type {Entry[]} */
+      let foodEntries = [];
+      /** @type {Entry[]} */
+      let workoutEntries = [];
+
+      const foodForm = document.getElementById("food-form");
+      const workoutForm = document.getElementById("workout-form");
+      const summaryContainer = document.getElementById("daily-summary");
+      const statusElement = document.getElementById("status");
+      const downloadBackupButton = document.getElementById("download-backup");
+      const uploadBackupInput = document.getElementById("upload-backup");
+
+      function setTodayDefaults() {
+        const today = new Date().toISOString().split("T")[0];
+        document.getElementById("food-date").value = today;
+        document.getElementById("workout-date").value = today;
+      }
+
+      function safeParseArray(jsonValue) {
+        try {
+          const parsed = JSON.parse(jsonValue || "[]");
+          return Array.isArray(parsed) ? parsed : [];
+        } catch {
+          return [];
+        }
+      }
+
+      function sanitizeEntries(entries) {
+        return entries
+          .filter((entry) => {
+            return (
+              entry &&
+              typeof entry.date === "string" &&
+              typeof entry.calories === "number" &&
+              Number.isFinite(entry.calories) &&
+              typeof entry.count === "number" &&
+              Number.isInteger(entry.count) &&
+              entry.count > 0
+            );
+          })
+          .map((entry) => ({
+            date: entry.date,
+            calories: Math.max(0, Math.round(entry.calories)),
+            count: entry.count,
+          }));
+      }
+
+      function loadFromStorage() {
+        foodEntries = sanitizeEntries(safeParseArray(localStorage.getItem(FOOD_STORAGE_KEY)));
+        workoutEntries = sanitizeEntries(safeParseArray(localStorage.getItem(WORKOUT_STORAGE_KEY)));
+      }
+
+      function saveToStorage() {
+        localStorage.setItem(FOOD_STORAGE_KEY, JSON.stringify(foodEntries));
+        localStorage.setItem(WORKOUT_STORAGE_KEY, JSON.stringify(workoutEntries));
+      }
+
+      function getNextCount(entries, date) {
+        const todayEntries = entries.filter((entry) => entry.date === date);
+        if (todayEntries.length === 0) {
+          return 1;
+        }
+        const maxCount = Math.max(...todayEntries.map((entry) => entry.count));
+        return maxCount + 1;
+      }
+
+      function addEntry(type, date, calories) {
+        const targetArray = type === "food" ? foodEntries : workoutEntries;
+        const nextCount = getNextCount(targetArray, date);
+        targetArray.push({ date, calories, count: nextCount });
+        saveToStorage();
+        renderSummary();
+      }
+
+      function sumCalories(entries) {
+        return entries.reduce((acc, entry) => acc + entry.calories, 0);
+      }
+
+      function groupedByDate(entries) {
+        /** @type {Record<string, Entry[]>} */
+        const groups = {};
+        for (const entry of entries) {
+          if (!groups[entry.date]) {
+            groups[entry.date] = [];
+          }
+          groups[entry.date].push(entry);
+        }
+        return groups;
+      }
+
+      function entryItemLabel(type, entry) {
+        if (type === "food") {
+          return `Meal ${entry.count}: ${entry.calories} cal`;
+        }
+        return `Workout ${entry.count}: ${entry.calories} cal`;
+      }
+
+      function renderSummary() {
+        const foodByDate = groupedByDate(foodEntries);
+        const workoutsByDate = groupedByDate(workoutEntries);
+        const allDates = Array.from(
+          new Set([...Object.keys(foodByDate), ...Object.keys(workoutsByDate)]),
+        ).sort((a, b) => b.localeCompare(a));
+
+        if (allDates.length === 0) {
+          summaryContainer.innerHTML =
+            '<p class="text-sm text-slate-600">No entries yet. Add a meal or workout to get started.</p>';
+          return;
+        }
+
+        const cards = allDates.map((date) => {
+          const meals = (foodByDate[date] || []).sort((a, b) => a.count - b.count);
+          const workouts = (workoutsByDate[date] || []).sort((a, b) => a.count - b.count);
+
+          const consumed = sumCalories(meals);
+          const burned = sumCalories(workouts);
+          const net = consumed - burned;
+
+          const mealsList = meals.length
+            ? meals.map((entry) => `<li>${entryItemLabel("food", entry)}</li>`).join("")
+            : "<li>No meals logged</li>";
+          const workoutsList = workouts.length
+            ? workouts.map((entry) => `<li>${entryItemLabel("workout", entry)}</li>`).join("")
+            : "<li>No workouts logged</li>";
+
+          return `
+            <article class="rounded-lg border border-slate-200 p-4">
+              <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <h3 class="text-base font-semibold">${date}</h3>
+                <p class="text-sm text-slate-700">Consumed: ${consumed} | Burned: ${burned} | Net: ${net}</p>
+              </div>
+              <div class="grid gap-3 text-sm md:grid-cols-2">
+                <div>
+                  <h4 class="font-medium">Meals</h4>
+                  <ul class="mt-1 list-inside list-disc text-slate-700">${mealsList}</ul>
+                </div>
+                <div>
+                  <h4 class="font-medium">Workouts</h4>
+                  <ul class="mt-1 list-inside list-disc text-slate-700">${workoutsList}</ul>
+                </div>
+              </div>
+            </article>
+          `;
+        });
+
+        summaryContainer.innerHTML = cards.join("");
+      }
+
+      function setStatus(message, isError = false) {
+        statusElement.textContent = message;
+        statusElement.className = isError ? "mt-3 text-sm text-red-600" : "mt-3 text-sm text-slate-600";
+      }
+
+      foodForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const formData = new FormData(foodForm);
+        const date = String(formData.get("date"));
+        const calories = Number(formData.get("calories"));
+        if (!date || !Number.isFinite(calories) || calories < 0) {
+          setStatus("Please enter a valid meal date and calories.", true);
+          return;
+        }
+        addEntry("food", date, Math.round(calories));
+        foodForm.reset();
+        setTodayDefaults();
+        setStatus("Meal added.");
+      });
+
+      workoutForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const formData = new FormData(workoutForm);
+        const date = String(formData.get("date"));
+        const calories = Number(formData.get("calories"));
+        if (!date || !Number.isFinite(calories) || calories < 0) {
+          setStatus("Please enter a valid workout date and calories.", true);
+          return;
+        }
+        addEntry("workout", date, Math.round(calories));
+        workoutForm.reset();
+        setTodayDefaults();
+        setStatus("Workout added.");
+      });
+
+      downloadBackupButton.addEventListener("click", () => {
+        const payload = {
+          foodEntries,
+          workoutEntries,
+        };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `calorie-tracker-backup-${new Date().toISOString().split("T")[0]}.json`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+        setStatus("Backup downloaded.");
+      });
+
+      uploadBackupInput.addEventListener("change", async (event) => {
+        const target = event.target;
+        const file = target.files?.[0];
+        if (!file) {
+          return;
+        }
+
+        try {
+          const text = await file.text();
+          const parsed = JSON.parse(text);
+          const nextFood = sanitizeEntries(Array.isArray(parsed.foodEntries) ? parsed.foodEntries : []);
+          const nextWorkouts = sanitizeEntries(
+            Array.isArray(parsed.workoutEntries) ? parsed.workoutEntries : [],
+          );
+
+          foodEntries = nextFood;
+          workoutEntries = nextWorkouts;
+          saveToStorage();
+          renderSummary();
+          setStatus("Backup restored successfully.");
+        } catch {
+          setStatus("Could not restore backup. Make sure the file is valid JSON.", true);
+        }
+
+        target.value = "";
+      });
+
+      loadFromStorage();
+      setTodayDefaults();
+      renderSummary();
+    </script>
+  </body>
 </html>
