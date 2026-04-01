@@ -218,6 +218,21 @@ import "../styles/global.css";
         return `Workout ${entry.count}: ${entry.calories} cal`;
       }
 
+      /** @param {string} isoDate yyyy-mm-dd */
+      function formatDateForDisplay(isoDate) {
+        const parts = isoDate.split("-").map(Number);
+        if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) {
+          return isoDate;
+        }
+        const [y, m, d] = parts;
+        const local = new Date(y, m - 1, d);
+        return local.toLocaleDateString("en-US", {
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+        });
+      }
+
       function renderSummary() {
         const foodByDate = groupedByDate(foodEntries);
         const workoutsByDate = groupedByDate(workoutEntries);
@@ -249,7 +264,7 @@ import "../styles/global.css";
           return `
             <article class="rounded-lg border border-slate-200 p-4">
               <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <h3 class="text-base font-semibold">${date}</h3>
+                <h3 class="text-base font-semibold">${formatDateForDisplay(date)}</h3>
                 <p class="text-sm text-slate-700">Consumed: ${consumed} | Burned: ${burned} | Net: ${net}</p>
               </div>
               <div class="grid gap-3 text-sm md:grid-cols-2">
