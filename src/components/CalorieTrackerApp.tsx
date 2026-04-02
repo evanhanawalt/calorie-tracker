@@ -75,21 +75,49 @@ export default function CalorieTrackerApp() {
     setStatus("Workout added.");
   }
 
-  function onDownloadBackup() {
+  const DEFAULT_BACKUP_FILENAME = "calorie-tracker-backup.json";
+
+  async function onDownloadBackup() {
     const payload = {
       foodEntries,
       workoutEntries,
     };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const json = JSON.stringify(payload, null, 2);
+    const blob = new Blob([json], { type: "application/json" });
+
+    if (typeof window.showSaveFilePicker === "function") {
+      try {
+        const handle = await window.showSaveFilePicker({
+          startIn: "downloads",
+          suggestedName: DEFAULT_BACKUP_FILENAME,
+          types: [
+            {
+              description: "JSON",
+              accept: { "application/json": [".json"] },
+            },
+          ],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        setStatus("Backup saved.");
+        return;
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") {
+          return;
+        }
+      }
+    }
+
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `calorie-tracker-backup-${getLocalTodayIso()}.json`;
+    link.download = DEFAULT_BACKUP_FILENAME;
     document.body.appendChild(link);
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
-    setStatus("Backup downloaded.");
+    setStatus("Backup saved.");
   }
 
   async function onUploadBackupChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -246,7 +274,7 @@ export default function CalorieTrackerApp() {
                     type="button"
                     className="w-full rounded-md bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-900"
                     onClick={() => {
-                      onDownloadBackup();
+                      void onDownloadBackup();
                     }}
                   >
                     Download JSON Backup
