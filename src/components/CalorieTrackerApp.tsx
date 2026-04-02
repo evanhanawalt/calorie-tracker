@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import {
+  deleteEntryAndRenumber,
   entryItemLabel,
   formatDateForDisplay,
   getLocalTodayIso,
@@ -108,6 +109,59 @@ export default function CalorieTrackerApp() {
       setStatus("Could not restore backup. Make sure the file is valid JSON.", true);
     }
     e.target.value = "";
+  }
+
+  function onEditEntry(type: "food" | "workout", entry: Entry) {
+    const label = type === "food" ? "meal" : "workout";
+    const next = window.prompt(`Edit ${label} calories:`, String(entry.calories));
+    if (next === null) return;
+
+    const calories = Number(next);
+    if (!Number.isFinite(calories) || calories < 0) {
+      setStatus(`Please enter a valid ${label} calories value.`, true);
+      return;
+    }
+
+    const roundCal = Math.round(calories);
+
+    if (type === "food") {
+      const nextFood = foodEntries.map((e) =>
+        e.date === entry.date && e.count === entry.count ? { ...e, calories: roundCal } : e,
+      );
+      setFoodEntries(nextFood);
+      saveEntries(nextFood, workoutEntries);
+      setStatus("Meal updated.");
+      return;
+    }
+
+    const nextWorkouts = workoutEntries.map((e) =>
+      e.date === entry.date && e.count === entry.count ? { ...e, calories: roundCal } : e,
+    );
+    setWorkoutEntries(nextWorkouts);
+    saveEntries(foodEntries, nextWorkouts);
+    setStatus("Workout updated.");
+  }
+
+  function onDeleteEntry(type: "food" | "workout", entry: Entry) {
+    const label = type === "food" ? "meal" : "workout";
+    if (
+      !window.confirm(
+        `Delete ${label} ${entry.count} (${entry.calories} cal) on ${entry.date}?`,
+      )
+    ) {
+      return;
+    }
+    if (type === "food") {
+      const nextFood = deleteEntryAndRenumber(foodEntries, entry.date, entry.count);
+      setFoodEntries(nextFood);
+      saveEntries(nextFood, workoutEntries);
+      setStatus("Meal deleted.");
+      return;
+    }
+    const nextWorkouts = deleteEntryAndRenumber(workoutEntries, entry.date, entry.count);
+    setWorkoutEntries(nextWorkouts);
+    saveEntries(foodEntries, nextWorkouts);
+    setStatus("Workout deleted.");
   }
 
   useEffect(() => {

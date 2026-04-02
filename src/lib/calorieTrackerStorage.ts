@@ -61,6 +61,25 @@ export function getNextCount(entries: Entry[], date: string): number {
   return Math.max(...dayEntries.map((entry) => entry.count)) + 1;
 }
 
+/**
+ * Removes the entry for `date` with `count`, then renumbers remaining entries on that date
+ * to 1..n in ascending order of their previous `count` (stable sequence).
+ * Preserves relative order of entries in the full array.
+ */
+export function deleteEntryAndRenumber(entries: Entry[], date: string, count: number): Entry[] {
+  const withoutDeleted = entries.filter((e) => !(e.date === date && e.count === count));
+  const sameDate = withoutDeleted
+    .filter((e) => e.date === date)
+    .sort((a, b) => a.count - b.count);
+  const oldToNew = new Map<number, number>();
+  sameDate.forEach((e, i) => oldToNew.set(e.count, i + 1));
+  return withoutDeleted.map((e) => {
+    if (e.date !== date) return e;
+    const newCount = oldToNew.get(e.count);
+    return newCount !== undefined ? { ...e, count: newCount } : e;
+  });
+}
+
 export function sumCalories(entries: Entry[]): number {
   return entries.reduce((acc, entry) => acc + entry.calories, 0);
 }
