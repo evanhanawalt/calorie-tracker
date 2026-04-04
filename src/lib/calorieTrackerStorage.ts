@@ -43,11 +43,15 @@ export function sanitizeEntries(entries: unknown[]): Entry[] {
 }
 
 export function loadFoodEntries(): Entry[] {
-  return sanitizeEntries(safeParseArray(localStorage.getItem(FOOD_STORAGE_KEY)));
+  return sanitizeEntries(
+    safeParseArray(localStorage.getItem(FOOD_STORAGE_KEY)),
+  );
 }
 
 export function loadWorkoutEntries(): Entry[] {
-  return sanitizeEntries(safeParseArray(localStorage.getItem(WORKOUT_STORAGE_KEY)));
+  return sanitizeEntries(
+    safeParseArray(localStorage.getItem(WORKOUT_STORAGE_KEY)),
+  );
 }
 
 export function saveEntries(food: Entry[], workouts: Entry[]): void {
@@ -66,8 +70,14 @@ export function getNextCount(entries: Entry[], date: string): number {
  * to 1..n in ascending order of their previous `count` (stable sequence).
  * Preserves relative order of entries in the full array.
  */
-export function deleteEntryAndRenumber(entries: Entry[], date: string, count: number): Entry[] {
-  const withoutDeleted = entries.filter((e) => !(e.date === date && e.count === count));
+export function deleteEntryAndRenumber(
+  entries: Entry[],
+  date: string,
+  count: number,
+): Entry[] {
+  const withoutDeleted = entries.filter(
+    (e) => !(e.date === date && e.count === count),
+  );
   const sameDate = withoutDeleted
     .filter((e) => e.date === date)
     .sort((a, b) => a.count - b.count);

@@ -17,16 +17,21 @@ import BurnContributionCalendar from "./BurnContributionCalendar";
 import { SvgGitHubMark, SvgSaveDisk, SvgSquarePen, SvgTrash } from "../svgs";
 
 export default function CalorieTrackerApp() {
-  const [foodEntries, setFoodEntries] = useState<Entry[]>(() => loadFoodEntries());
-  const [workoutEntries, setWorkoutEntries] = useState<Entry[]>(() => loadWorkoutEntries());
-  const [foodDate, setFoodDate] = useState(() => getLocalTodayIso());
-  const [workoutDate, setWorkoutDate] = useState(() => getLocalTodayIso());
+  const [foodEntries, setFoodEntries] = useState<Entry[]>(() =>
+    loadFoodEntries(),
+  );
+  const [workoutEntries, setWorkoutEntries] = useState<Entry[]>(() =>
+    loadWorkoutEntries(),
+  );
   const [foodCalories, setFoodCalories] = useState("");
   const [workoutCalories, setWorkoutCalories] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [statusIsError, setStatusIsError] = useState(false);
   const [backupMenuOpen, setBackupMenuOpen] = useState(false);
-  const [selectedSummaryDate, setSelectedSummaryDate] = useState(() => getLocalTodayIso());
+  const [selectedSummaryDate, setSelectedSummaryDate] = useState(() =>
+    getLocalTodayIso(),
+  );
+  const todayIso = getLocalTodayIso();
 
   const backupMenuRef = useRef<HTMLDivElement>(null);
   const backupMenuButtonRef = useRef<HTMLButtonElement>(null);
@@ -39,41 +44,49 @@ export default function CalorieTrackerApp() {
 
   function onFoodSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const date = foodDate;
+    const date = selectedSummaryDate;
     const calories = Number(foodCalories);
-    if (!date || !Number.isFinite(calories) || calories < 0) {
-      setStatus("Please enter a valid meal date and calories.", true);
+    if (!date || date > todayIso) {
+      setStatus("Pick a day on the calendar (not a future date).", true);
+      return;
+    }
+    if (!Number.isFinite(calories) || calories < 0) {
+      setStatus("Please enter valid calories.", true);
       return;
     }
     const nextCount = getNextCount(foodEntries, date);
     const roundCal = Math.round(calories);
-    const nextFood = [...foodEntries, { date, calories: roundCal, count: nextCount }];
+    const nextFood = [
+      ...foodEntries,
+      { date, calories: roundCal, count: nextCount },
+    ];
     setFoodEntries(nextFood);
     saveEntries(nextFood, workoutEntries);
     setFoodCalories("");
-    const today = getLocalTodayIso();
-    setFoodDate(today);
-    setWorkoutDate(today);
     setStatus("Meal added.");
   }
 
   function onWorkoutSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const date = workoutDate;
+    const date = selectedSummaryDate;
     const calories = Number(workoutCalories);
-    if (!date || !Number.isFinite(calories) || calories < 0) {
-      setStatus("Please enter a valid workout date and calories.", true);
+    if (!date || date > todayIso) {
+      setStatus("Pick a day on the calendar (not a future date).", true);
+      return;
+    }
+    if (!Number.isFinite(calories) || calories < 0) {
+      setStatus("Please enter valid calories burned.", true);
       return;
     }
     const nextCount = getNextCount(workoutEntries, date);
     const roundCal = Math.round(calories);
-    const nextWorkouts = [...workoutEntries, { date, calories: roundCal, count: nextCount }];
+    const nextWorkouts = [
+      ...workoutEntries,
+      { date, calories: roundCal, count: nextCount },
+    ];
     setWorkoutEntries(nextWorkouts);
     saveEntries(foodEntries, nextWorkouts);
     setWorkoutCalories("");
-    const today = getLocalTodayIso();
-    setFoodDate(today);
-    setWorkoutDate(today);
     setStatus("Workout added.");
   }
 
@@ -127,8 +140,13 @@ export default function CalorieTrackerApp() {
     if (!file) return;
     try {
       const text = await file.text();
-      const parsed = JSON.parse(text) as { foodEntries?: unknown; workoutEntries?: unknown };
-      const nextFood = sanitizeEntries(Array.isArray(parsed.foodEntries) ? parsed.foodEntries : []);
+      const parsed = JSON.parse(text) as {
+        foodEntries?: unknown;
+        workoutEntries?: unknown;
+      };
+      const nextFood = sanitizeEntries(
+        Array.isArray(parsed.foodEntries) ? parsed.foodEntries : [],
+      );
       const nextWorkouts = sanitizeEntries(
         Array.isArray(parsed.workoutEntries) ? parsed.workoutEntries : [],
       );
@@ -137,14 +155,20 @@ export default function CalorieTrackerApp() {
       saveEntries(nextFood, nextWorkouts);
       setStatus("Backup restored successfully.");
     } catch {
-      setStatus("Could not restore backup. Make sure the file is valid JSON.", true);
+      setStatus(
+        "Could not restore backup. Make sure the file is valid JSON.",
+        true,
+      );
     }
     e.target.value = "";
   }
 
   function onEditEntry(type: "food" | "workout", entry: Entry) {
     const label = type === "food" ? "meal" : "workout";
-    const next = window.prompt(`Edit ${label} calories:`, String(entry.calories));
+    const next = window.prompt(
+      `Edit ${label} calories:`,
+      String(entry.calories),
+    );
     if (next === null) return;
 
     const calories = Number(next);
@@ -157,7 +181,9 @@ export default function CalorieTrackerApp() {
 
     if (type === "food") {
       const nextFood = foodEntries.map((e) =>
-        e.date === entry.date && e.count === entry.count ? { ...e, calories: roundCal } : e,
+        e.date === entry.date && e.count === entry.count
+          ? { ...e, calories: roundCal }
+          : e,
       );
       setFoodEntries(nextFood);
       saveEntries(nextFood, workoutEntries);
@@ -166,7 +192,9 @@ export default function CalorieTrackerApp() {
     }
 
     const nextWorkouts = workoutEntries.map((e) =>
-      e.date === entry.date && e.count === entry.count ? { ...e, calories: roundCal } : e,
+      e.date === entry.date && e.count === entry.count
+        ? { ...e, calories: roundCal }
+        : e,
     );
     setWorkoutEntries(nextWorkouts);
     saveEntries(foodEntries, nextWorkouts);
@@ -183,13 +211,21 @@ export default function CalorieTrackerApp() {
       return;
     }
     if (type === "food") {
-      const nextFood = deleteEntryAndRenumber(foodEntries, entry.date, entry.count);
+      const nextFood = deleteEntryAndRenumber(
+        foodEntries,
+        entry.date,
+        entry.count,
+      );
       setFoodEntries(nextFood);
       saveEntries(nextFood, workoutEntries);
       setStatus("Meal deleted.");
       return;
     }
-    const nextWorkouts = deleteEntryAndRenumber(workoutEntries, entry.date, entry.count);
+    const nextWorkouts = deleteEntryAndRenumber(
+      workoutEntries,
+      entry.date,
+      entry.count,
+    );
     setWorkoutEntries(nextWorkouts);
     saveEntries(foodEntries, nextWorkouts);
     setStatus("Workout deleted.");
@@ -224,15 +260,18 @@ export default function CalorieTrackerApp() {
     new Set([...Object.keys(foodByDate), ...Object.keys(workoutsByDate)]),
   ).sort((a, b) => b.localeCompare(a));
 
-  const todayIso = getLocalTodayIso();
   const getBurnedForDay = useCallback(
     (iso: string) => sumCalories(workoutsByDate[iso] ?? []),
     [workoutsByDate],
   );
 
   const summaryDate = selectedSummaryDate;
-  const meals = (foodByDate[summaryDate] ?? []).slice().sort((a, b) => a.count - b.count);
-  const workouts = (workoutsByDate[summaryDate] ?? []).slice().sort((a, b) => a.count - b.count);
+  const meals = (foodByDate[summaryDate] ?? [])
+    .slice()
+    .sort((a, b) => a.count - b.count);
+  const workouts = (workoutsByDate[summaryDate] ?? [])
+    .slice()
+    .sort((a, b) => a.count - b.count);
   const consumed = sumCalories(meals);
   const burned = sumCalories(workouts);
   const net = consumed - burned;
@@ -256,7 +295,9 @@ export default function CalorieTrackerApp() {
               <SvgGitHubMark className="size-7" />
             </a>
           </div>
-
+          <div>
+            <h1 className="text-2xl font-bold">Calorie Tracker</h1>
+          </div>
           <div className="relative flex shrink-0 justify-end">
             <button
               ref={backupMenuButtonRef}
@@ -280,7 +321,10 @@ export default function CalorieTrackerApp() {
                 aria-labelledby={backupMenuHeadingId}
                 className="absolute right-0 top-full z-50 mt-2 min-w-[16rem] rounded-lg border border-slate-200 bg-white p-4 shadow-lg"
               >
-                <h2 id={backupMenuHeadingId} className="mb-3 text-lg font-semibold">
+                <h2
+                  id={backupMenuHeadingId}
+                  className="mb-3 text-lg font-semibold"
+                >
                   Backup / Restore
                 </h2>
                 <div className="flex flex-col gap-3">
@@ -311,19 +355,12 @@ export default function CalorieTrackerApp() {
         </div>
       </nav>
 
-      <main className="mx-auto max-w-4xl space-y-6 p-4 md:p-8">
-        <header className="mb-1">
-          <h1 className="text-3xl font-bold">Calorie Tracker</h1>
-          <p className="mt-2 text-sm font-bold text-slate-600">
-            Track calories consumed and burned by day. Data is stored in your browser.
-          </p>
-        </header>
-
+      <main className="mx-auto max-w-4xl space-y-4 p-4 md:p-8">
         <p
           id="status"
           role="status"
           aria-live="polite"
-          className={`min-h-10 text-sm m-0 leading-5 italic ${
+          className={`text-sm m-0 leading-5 italic ${
             statusIsError ? "text-red-600" : "text-slate-600"
           }`}
         >
@@ -331,21 +368,25 @@ export default function CalorieTrackerApp() {
         </p>
 
         <section className="grid gap-4 rounded-xl bg-white p-4 shadow-sm md:grid-cols-2">
+          <div className="md:col-span-2">
+            <div className="flex justify-between items-center">
+              <h2 className="mb-3 text-lg font-semibold">
+                {formatDateForDisplay(summaryDate)}
+              </h2>
+              <p className="text-sm text-slate-700">
+                Consumed: {consumed} | Burned: {burned} | Net: {net}
+              </p>
+            </div>
+            <BurnContributionCalendar
+              todayIso={todayIso}
+              selectedDate={selectedSummaryDate}
+              onSelectDate={setSelectedSummaryDate}
+              getBurnedForDay={getBurnedForDay}
+            />
+          </div>
           <div>
             <h2 className="mb-3 text-lg font-semibold">Add Meal</h2>
             <form id="food-form" className="space-y-3" onSubmit={onFoodSubmit}>
-              <label className="block text-sm">
-                <span className="mb-1 block font-medium">Date</span>
-                <input
-                  id="food-date"
-                  name="date"
-                  type="date"
-                  required
-                  className="w-full rounded-md border border-slate-300 px-3 py-2"
-                  value={foodDate}
-                  onChange={(ev) => setFoodDate(ev.target.value)}
-                />
-              </label>
               <label className="block text-sm">
                 <span className="mb-1 block font-medium">Calories</span>
                 <input
@@ -371,19 +412,11 @@ export default function CalorieTrackerApp() {
 
           <div>
             <h2 className="mb-3 text-lg font-semibold">Add Workout</h2>
-            <form id="workout-form" className="space-y-3" onSubmit={onWorkoutSubmit}>
-              <label className="block text-sm">
-                <span className="mb-1 block font-medium">Date</span>
-                <input
-                  id="workout-date"
-                  name="date"
-                  type="date"
-                  required
-                  className="w-full rounded-md border border-slate-300 px-3 py-2"
-                  value={workoutDate}
-                  onChange={(ev) => setWorkoutDate(ev.target.value)}
-                />
-              </label>
+            <form
+              id="workout-form"
+              className="space-y-3"
+              onSubmit={onWorkoutSubmit}
+            >
               <label className="block text-sm">
                 <span className="mb-1 block font-medium">Calories Burned</span>
                 <input
@@ -406,108 +439,116 @@ export default function CalorieTrackerApp() {
               </button>
             </form>
           </div>
-        </section>
-
-        <section className="rounded-xl bg-white p-4 shadow-sm">
-          <h2 className="mb-3 text-lg font-semibold">Daily Summary</h2>
-          <div id="daily-summary" className="space-y-4">
-            {allDates.length === 0 ? (
-              <p className="text-sm text-slate-600">No entries yet. Add a meal or workout to get started.</p>
-            ) : null}
-
-          
-
-            <article className="rounded-lg border border-slate-200 p-4">
-              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-base font-semibold">{formatDateForDisplay(summaryDate)}</h3>
-                <p className="text-sm text-slate-700">
-                  Consumed: {consumed} | Burned: {burned} | Net: {net}
+          <div className="md:col-span-2">
+            <div id="daily-summary" className="space-y-4">
+              {allDates.length === 0 ? (
+                <p className="text-sm text-slate-600">
+                  No entries yet. Add a meal or workout to get started.
                 </p>
-              </div>
-              <div className="grid gap-3 text-sm md:grid-cols-2">
-                <div>
-                  <h4 className="font-medium">Meals</h4>
-                  <ul className="mt-1 list-inside list-disc text-slate-700">
-                    {meals.length ? (
-                      meals.map((entry) => (
-                        <li key={`${summaryDate}-food-${entry.count}`} className="flex items-center gap-2">
-                          <span className="min-w-0 flex-1 leading-5">
-                            {entryItemLabel("food", entry)}
-                          </span>
-                          <span className="inline-flex shrink-0 items-center gap-1">
-                            <button
-                              type="button"
-                              title="Edit"
-                              aria-label={`Edit meal ${entry.count}`}
-                              className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
-                              onClick={() => onEditEntry("food", entry)}
-                            >
-                              <SvgSquarePen className="size-4" aria-hidden="true" />
-                            </button>
-                            <button
-                              type="button"
-                              title="Delete"
-                              aria-label={`Delete meal ${entry.count}`}
-                              className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-600 hover:bg-red-50 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200"
-                              onClick={() => onDeleteEntry("food", entry)}
-                            >
-                              <SvgTrash className="size-4" aria-hidden="true" />
-                            </button>
-                          </span>
-                        </li>
-                      ))
-                    ) : (
-                      <li>No meals logged</li>
-                    )}
-                  </ul>
+              ) : null}
+              <article className="rounded-lg border border-slate-200 p-4">
+                <div className="grid gap-3 text-sm md:grid-cols-2">
+                  <div>
+                    <div className="flex justify-between items-center">
+                      <h4 className="font-medium">Meals</h4>
+                      <p className="text-sm text-slate-700">
+                        Total: {consumed}
+                      </p>
+                    </div>
+                    <ul className="mt-1 list-inside list-disc text-slate-700">
+                      {meals.length ? (
+                        meals.map((entry) => (
+                          <li
+                            key={`${summaryDate}-food-${entry.count}`}
+                            className="flex items-center gap-2"
+                          >
+                            <span className="min-w-0 flex-1 leading-5">
+                              {entryItemLabel("food", entry)}
+                            </span>
+                            <span className="inline-flex shrink-0 items-center gap-1">
+                              <button
+                                type="button"
+                                title="Edit"
+                                aria-label={`Edit meal ${entry.count}`}
+                                className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+                                onClick={() => onEditEntry("food", entry)}
+                              >
+                                <SvgSquarePen
+                                  className="size-4"
+                                  aria-hidden="true"
+                                />
+                              </button>
+                              <button
+                                type="button"
+                                title="Delete"
+                                aria-label={`Delete meal ${entry.count}`}
+                                className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-600 hover:bg-red-50 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200"
+                                onClick={() => onDeleteEntry("food", entry)}
+                              >
+                                <SvgTrash
+                                  className="size-4"
+                                  aria-hidden="true"
+                                />
+                              </button>
+                            </span>
+                          </li>
+                        ))
+                      ) : (
+                        <li>No meals logged</li>
+                      )}
+                    </ul>
+                  </div>
+                  <div>
+                    <div className="flex justify-between items-center">
+                      <h4 className="font-medium">Workouts</h4>
+                      <p className="text-sm text-slate-700">Total: {burned}</p>
+                    </div>
+                    <ul className="mt-1 list-inside list-disc text-slate-700">
+                      {workouts.length ? (
+                        workouts.map((entry) => (
+                          <li
+                            key={`${summaryDate}-wo-${entry.count}`}
+                            className="flex items-center gap-2"
+                          >
+                            <span className="min-w-0 flex-1 leading-5">
+                              {entryItemLabel("workout", entry)}
+                            </span>
+                            <span className="inline-flex shrink-0 items-center gap-1">
+                              <button
+                                type="button"
+                                title="Edit"
+                                aria-label={`Edit workout ${entry.count}`}
+                                className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+                                onClick={() => onEditEntry("workout", entry)}
+                              >
+                                <SvgSquarePen
+                                  className="size-4"
+                                  aria-hidden="true"
+                                />
+                              </button>
+                              <button
+                                type="button"
+                                title="Delete"
+                                aria-label={`Delete workout ${entry.count}`}
+                                className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-600 hover:bg-red-50 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200"
+                                onClick={() => onDeleteEntry("workout", entry)}
+                              >
+                                <SvgTrash
+                                  className="size-4"
+                                  aria-hidden="true"
+                                />
+                              </button>
+                            </span>
+                          </li>
+                        ))
+                      ) : (
+                        <li>No workouts logged</li>
+                      )}
+                    </ul>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="font-medium">Workouts</h4>
-                  <ul className="mt-1 list-inside list-disc text-slate-700">
-                    {workouts.length ? (
-                      workouts.map((entry) => (
-                        <li
-                          key={`${summaryDate}-wo-${entry.count}`}
-                          className="flex items-center gap-2"
-                        >
-                          <span className="min-w-0 flex-1 leading-5">
-                            {entryItemLabel("workout", entry)}
-                          </span>
-                          <span className="inline-flex shrink-0 items-center gap-1">
-                            <button
-                              type="button"
-                              title="Edit"
-                              aria-label={`Edit workout ${entry.count}`}
-                              className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
-                              onClick={() => onEditEntry("workout", entry)}
-                            >
-                              <SvgSquarePen className="size-4" aria-hidden="true" />
-                            </button>
-                            <button
-                              type="button"
-                              title="Delete"
-                              aria-label={`Delete workout ${entry.count}`}
-                              className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-600 hover:bg-red-50 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200"
-                              onClick={() => onDeleteEntry("workout", entry)}
-                            >
-                              <SvgTrash className="size-4" aria-hidden="true" />
-                            </button>
-                          </span>
-                        </li>
-                      ))
-                    ) : (
-                      <li>No workouts logged</li>
-                    )}
-                  </ul>
-                </div>
-              </div>
-            </article>
-            <BurnContributionCalendar
-              todayIso={todayIso}
-              selectedDate={selectedSummaryDate}
-              onSelectDate={setSelectedSummaryDate}
-              getBurnedForDay={getBurnedForDay}
-            />
+              </article>
+            </div>
           </div>
         </section>
       </main>

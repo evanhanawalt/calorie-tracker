@@ -107,7 +107,11 @@ function ContributionBand({
   getBurnedForDay,
 }: BandProps) {
   const bandCells = allCells.slice(startWeek * 7, (startWeek + weekCount) * 7);
-  const monthHeaderSegments = monthHeaderSegmentsForWeekRange(allCells, startWeek, weekCount);
+  const monthHeaderSegments = monthHeaderSegmentsForWeekRange(
+    allCells,
+    startWeek,
+    weekCount,
+  );
   const colTemplate = `repeat(${weekCount}, minmax(0, 1fr))`;
 
   return (
@@ -141,7 +145,10 @@ function ContributionBand({
           aria-hidden="true"
         >
           {(["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"] as const).map((d) => (
-            <span key={d} className="flex min-h-[10px] min-w-0 flex-1 items-center justify-end pr-0.5">
+            <span
+              key={d}
+              className="flex min-h-[10px] min-w-0 flex-1 items-center justify-end pr-0.5"
+            >
               {d}
             </span>
           ))}
@@ -209,13 +216,13 @@ export default function BurnContributionCalendar({
   const weeksSecondBand = numWeeks - weeksFirstBand;
 
   const legendSteps = [0, 0.25, 0.5, 0.75, 1] as const;
-  const totalBands = (weeksFirstBand > 0 ? 1 : 0) + (weeksSecondBand > 0 ? 1 : 0);
+  const totalBands =
+    (weeksFirstBand > 0 ? 1 : 0) + (weeksSecondBand > 0 ? 1 : 0);
 
   return (
     <div className="space-y-3">
       <div className="flex w-full min-w-0 flex-col gap-3">
-        
-      {weeksSecondBand > 0 ? (
+        {weeksSecondBand > 0 ? (
           <ContributionBand
             bandIndex={1}
             bandCount={totalBands}
@@ -259,7 +266,9 @@ export default function BurnContributionCalendar({
           ))}
         </div>
         <span className="shrink-0">More</span>
-        <span className="text-slate-500">(intensity scales to {BURN_INTENSITY_MAX_CAL} cal burned)</span>
+        <span className="text-slate-500">
+          (intensity scales to {BURN_INTENSITY_MAX_CAL} cal burned)
+        </span>
       </div>
     </div>
   );

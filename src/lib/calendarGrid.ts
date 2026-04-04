@@ -35,7 +35,10 @@ export type ContributionCell = {
  * Flat list in column-major order (each week: Sun→Sat) for CSS
  * `grid-template-rows: repeat(7, …); grid-auto-flow: column`.
  */
-export function buildContributionCells(todayIso: string, numWeeks = 53): ContributionCell[] {
+export function buildContributionCells(
+  todayIso: string,
+  numWeeks = 53,
+): ContributionCell[] {
   const today = parseIsoLocal(todayIso);
   if (Number.isNaN(today.getTime())) {
     return [];
