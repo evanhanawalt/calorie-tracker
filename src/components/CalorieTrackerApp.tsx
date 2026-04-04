@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import {
   deleteEntryAndRenumber,
   entryItemLabel,
@@ -13,6 +13,7 @@ import {
   sumCalories,
   type Entry,
 } from "../lib/calorieTrackerStorage";
+import BurnContributionCalendar from "./BurnContributionCalendar";
 import { SvgGitHubMark, SvgSaveDisk, SvgSquarePen, SvgTrash } from "../svgs";
 
 export default function CalorieTrackerApp() {
@@ -25,6 +26,7 @@ export default function CalorieTrackerApp() {
   const [statusMessage, setStatusMessage] = useState("");
   const [statusIsError, setStatusIsError] = useState(false);
   const [backupMenuOpen, setBackupMenuOpen] = useState(false);
+  const [selectedSummaryDate, setSelectedSummaryDate] = useState(() => getLocalTodayIso());
 
   const backupMenuRef = useRef<HTMLDivElement>(null);
   const backupMenuButtonRef = useRef<HTMLButtonElement>(null);
@@ -222,6 +224,19 @@ export default function CalorieTrackerApp() {
     new Set([...Object.keys(foodByDate), ...Object.keys(workoutsByDate)]),
   ).sort((a, b) => b.localeCompare(a));
 
+  const todayIso = getLocalTodayIso();
+  const getBurnedForDay = useCallback(
+    (iso: string) => sumCalories(workoutsByDate[iso] ?? []),
+    [workoutsByDate],
+  );
+
+  const summaryDate = selectedSummaryDate;
+  const meals = (foodByDate[summaryDate] ?? []).slice().sort((a, b) => a.count - b.count);
+  const workouts = (workoutsByDate[summaryDate] ?? []).slice().sort((a, b) => a.count - b.count);
+  const consumed = sumCalories(meals);
+  const burned = sumCalories(workouts);
+  const net = consumed - burned;
+
   return (
     <>
       <nav
@@ -398,102 +413,101 @@ export default function CalorieTrackerApp() {
           <div id="daily-summary" className="space-y-4">
             {allDates.length === 0 ? (
               <p className="text-sm text-slate-600">No entries yet. Add a meal or workout to get started.</p>
-            ) : (
-              allDates.map((date) => {
-                const meals = (foodByDate[date] ?? []).slice().sort((a, b) => a.count - b.count);
-                const workouts = (workoutsByDate[date] ?? []).slice().sort((a, b) => a.count - b.count);
-                const consumed = sumCalories(meals);
-                const burned = sumCalories(workouts);
-                const net = consumed - burned;
-                return (
-                  <article key={date} className="rounded-lg border border-slate-200 p-4">
-                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                      <h3 className="text-base font-semibold">{formatDateForDisplay(date)}</h3>
-                      <p className="text-sm text-slate-700">
-                        Consumed: {consumed} | Burned: {burned} | Net: {net}
-                      </p>
-                    </div>
-                    <div className="grid gap-3 text-sm md:grid-cols-2">
-                      <div>
-                        <h4 className="font-medium">Meals</h4>
-                        <ul className="mt-1 list-inside list-disc text-slate-700">
-                          {meals.length ? (
-                            meals.map((entry) => (
-                              <li key={`${date}-food-${entry.count}`} className="flex items-center gap-2">
-                                <span className="min-w-0 flex-1 leading-5">
-                                  {entryItemLabel("food", entry)}
-                                </span>
-                                <span className="inline-flex shrink-0 items-center gap-1">
-                                  <button
-                                    type="button"
-                                    title="Edit"
-                                    aria-label={`Edit meal ${entry.count}`}
-                                    className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
-                                    onClick={() => onEditEntry("food", entry)}
-                                  >
-                                    <SvgSquarePen className="size-4" aria-hidden="true" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    title="Delete"
-                                    aria-label={`Delete meal ${entry.count}`}
-                                    className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-600 hover:bg-red-50 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200"
-                                    onClick={() => onDeleteEntry("food", entry)}
-                                  >
-                                    <SvgTrash className="size-4" aria-hidden="true" />
-                                  </button>
-                                </span>
-                              </li>
-                            ))
-                          ) : (
-                            <li>No meals logged</li>
-                          )}
-                        </ul>
-                      </div>
-                      <div>
-                        <h4 className="font-medium">Workouts</h4>
-                        <ul className="mt-1 list-inside list-disc text-slate-700">
-                          {workouts.length ? (
-                            workouts.map((entry) => (
-                              <li
-                                key={`${date}-wo-${entry.count}`}
-                                className="flex items-center gap-2"
-                              >
-                                <span className="min-w-0 flex-1 leading-5">
-                                  {entryItemLabel("workout", entry)}
-                                </span>
-                                <span className="inline-flex shrink-0 items-center gap-1">
-                                  <button
-                                    type="button"
-                                    title="Edit"
-                                    aria-label={`Edit workout ${entry.count}`}
-                                    className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
-                                    onClick={() => onEditEntry("workout", entry)}
-                                  >
-                                    <SvgSquarePen className="size-4" aria-hidden="true" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    title="Delete"
-                                    aria-label={`Delete workout ${entry.count}`}
-                                    className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-600 hover:bg-red-50 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200"
-                                    onClick={() => onDeleteEntry("workout", entry)}
-                                  >
-                                    <SvgTrash className="size-4" aria-hidden="true" />
-                                  </button>
-                                </span>
-                              </li>
-                            ))
-                          ) : (
-                            <li>No workouts logged</li>
-                          )}
-                        </ul>
-                      </div>
-                    </div>
-                  </article>
-                );
-              })
-            )}
+            ) : null}
+
+          
+
+            <article className="rounded-lg border border-slate-200 p-4">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-base font-semibold">{formatDateForDisplay(summaryDate)}</h3>
+                <p className="text-sm text-slate-700">
+                  Consumed: {consumed} | Burned: {burned} | Net: {net}
+                </p>
+              </div>
+              <div className="grid gap-3 text-sm md:grid-cols-2">
+                <div>
+                  <h4 className="font-medium">Meals</h4>
+                  <ul className="mt-1 list-inside list-disc text-slate-700">
+                    {meals.length ? (
+                      meals.map((entry) => (
+                        <li key={`${summaryDate}-food-${entry.count}`} className="flex items-center gap-2">
+                          <span className="min-w-0 flex-1 leading-5">
+                            {entryItemLabel("food", entry)}
+                          </span>
+                          <span className="inline-flex shrink-0 items-center gap-1">
+                            <button
+                              type="button"
+                              title="Edit"
+                              aria-label={`Edit meal ${entry.count}`}
+                              className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+                              onClick={() => onEditEntry("food", entry)}
+                            >
+                              <SvgSquarePen className="size-4" aria-hidden="true" />
+                            </button>
+                            <button
+                              type="button"
+                              title="Delete"
+                              aria-label={`Delete meal ${entry.count}`}
+                              className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-600 hover:bg-red-50 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200"
+                              onClick={() => onDeleteEntry("food", entry)}
+                            >
+                              <SvgTrash className="size-4" aria-hidden="true" />
+                            </button>
+                          </span>
+                        </li>
+                      ))
+                    ) : (
+                      <li>No meals logged</li>
+                    )}
+                  </ul>
+                </div>
+                <div>
+                  <h4 className="font-medium">Workouts</h4>
+                  <ul className="mt-1 list-inside list-disc text-slate-700">
+                    {workouts.length ? (
+                      workouts.map((entry) => (
+                        <li
+                          key={`${summaryDate}-wo-${entry.count}`}
+                          className="flex items-center gap-2"
+                        >
+                          <span className="min-w-0 flex-1 leading-5">
+                            {entryItemLabel("workout", entry)}
+                          </span>
+                          <span className="inline-flex shrink-0 items-center gap-1">
+                            <button
+                              type="button"
+                              title="Edit"
+                              aria-label={`Edit workout ${entry.count}`}
+                              className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+                              onClick={() => onEditEntry("workout", entry)}
+                            >
+                              <SvgSquarePen className="size-4" aria-hidden="true" />
+                            </button>
+                            <button
+                              type="button"
+                              title="Delete"
+                              aria-label={`Delete workout ${entry.count}`}
+                              className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-600 hover:bg-red-50 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200"
+                              onClick={() => onDeleteEntry("workout", entry)}
+                            >
+                              <SvgTrash className="size-4" aria-hidden="true" />
+                            </button>
+                          </span>
+                        </li>
+                      ))
+                    ) : (
+                      <li>No workouts logged</li>
+                    )}
+                  </ul>
+                </div>
+              </div>
+            </article>
+            <BurnContributionCalendar
+              todayIso={todayIso}
+              selectedDate={selectedSummaryDate}
+              onSelectDate={setSelectedSummaryDate}
+              getBurnedForDay={getBurnedForDay}
+            />
           </div>
         </section>
       </main>
