@@ -6,20 +6,14 @@ import {
 } from "../lib/calendarGrid";
 import { formatDateForDisplay } from "../lib/calorieTrackerStorage";
 
-export const BURN_INTENSITY_MAX_CAL = 1500;
-
 type Props = {
   todayIso: string;
   weeks?: number;
   selectedDate: string;
   onSelectDate: (iso: string) => void;
-  getBurnedForDay: (iso: string) => number;
+  /** True when there was any logged activity on that calendar day (e.g. meal or workout). */
+  dayHasActivity: (iso: string) => boolean;
 };
-
-function burnIntensity(burned: number): number {
-  if (!Number.isFinite(burned) || burned <= 0) return 0;
-  return Math.min(burned / BURN_INTENSITY_MAX_CAL, 1);
-}
 
 function monthLabelForIso(iso: string): string {
   const d = parseIsoLocal(iso);
@@ -30,11 +24,11 @@ function monthLabelForIso(iso: string): string {
   return d.toLocaleDateString("en-US", { month: "short" });
 }
 
-function cellAriaLabel(iso: string, burned: number, isFuture: boolean): string {
+function cellAriaLabel(iso: string, hasActivity: boolean, isFuture: boolean): string {
   const datePart = formatDateForDisplay(iso);
   if (isFuture) return `${datePart}, future date`;
-  if (burned <= 0) return `${datePart}, no calories burned`;
-  return `${datePart}, ${burned} calories burned`;
+  if (!hasActivity) return `${datePart}, no activity logged`;
+  return `${datePart}, activity logged`;
 }
 
 type MonthHeaderSegment = {
@@ -93,7 +87,7 @@ type BandProps = {
   allCells: ContributionCell[];
   selectedDate: string;
   onSelectDate: (iso: string) => void;
-  getBurnedForDay: (iso: string) => number;
+  dayHasActivity: (iso: string) => boolean;
 };
 
 function ContributionBand({
@@ -104,7 +98,7 @@ function ContributionBand({
   allCells,
   selectedDate,
   onSelectDate,
-  getBurnedForDay,
+  dayHasActivity,
 }: BandProps) {
   const bandCells = allCells.slice(startWeek * 7, (startWeek + weekCount) * 7);
   const monthHeaderSegments = monthHeaderSegmentsForWeekRange(
@@ -116,7 +110,7 @@ function ContributionBand({
 
   return (
     <div
-      className="flex min-w-0 flex-col gap-1 [--burn-accent:var(--color-blue-600)] [--burn-empty:var(--color-slate-200)]"
+      className="flex min-w-0 flex-col gap-1 [--activity-on:var(--color-blue-400)] [--activity-off:var(--color-slate-200)]"
       role="presentation"
     >
       <div
@@ -158,8 +152,8 @@ function ContributionBand({
           role="grid"
           aria-label={
             bandCount > 1
-              ? `Calories burned by day, band ${bandIndex + 1} of ${bandCount}`
-              : "Calories burned by day"
+              ? `Activity by day, band ${bandIndex + 1} of ${bandCount}`
+              : "Activity by day"
           }
           className="grid min-w-0 flex-1 gap-1"
           style={{
@@ -169,10 +163,8 @@ function ContributionBand({
           }}
         >
           {bandCells.map((cell: ContributionCell) => {
-            const burned = cell.isFuture ? 0 : getBurnedForDay(cell.iso);
-            const t = cell.isFuture ? 0 : burnIntensity(burned);
+            const hasActivity = !cell.isFuture && dayHasActivity(cell.iso);
             const selected = cell.iso === selectedDate;
-            const mixPct = t * 100;
             return (
               <button
                 key={cell.iso}
@@ -181,7 +173,7 @@ function ContributionBand({
                 aria-disabled={cell.isFuture}
                 tabIndex={cell.isFuture ? -1 : undefined}
                 title={formatDateForDisplay(cell.iso)}
-                aria-label={cellAriaLabel(cell.iso, burned, cell.isFuture)}
+                aria-label={cellAriaLabel(cell.iso, hasActivity, cell.isFuture)}
                 aria-selected={selected}
                 aria-current={selected ? "date" : undefined}
                 onClick={() => {
@@ -191,8 +183,10 @@ function ContributionBand({
                 className={`h-full min-h-[14px] min-w-0 w-full max-w-full rounded-xs border border-slate-300/90 transition-[box-shadow,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 ${cell.isFuture ? "cursor-default border-slate-200 opacity-40" : "cursor-pointer hover:ring-1 hover:ring-slate-400"} ${selected ? "ring-2 ring-blue-600 ring-offset-1" : ""}`}
                 style={{
                   backgroundColor: cell.isFuture
-                    ? "var(--burn-empty)"
-                    : `color-mix(in oklab, var(--burn-accent) ${mixPct}%, var(--burn-empty) 100%)`,
+                    ? "var(--activity-off)"
+                    : hasActivity
+                      ? "var(--activity-on)"
+                      : "var(--activity-off)",
                 }}
               />
             );
@@ -208,14 +202,13 @@ export default function BurnContributionCalendar({
   weeks = 53,
   selectedDate,
   onSelectDate,
-  getBurnedForDay,
+  dayHasActivity,
 }: Props) {
   const cells = buildContributionCells(todayIso, weeks);
   const numWeeks = weeks;
   const weeksFirstBand = Math.ceil(numWeeks / 2);
   const weeksSecondBand = numWeeks - weeksFirstBand;
 
-  const legendSteps = [0, 0.25, 0.5, 0.75, 1] as const;
   const totalBands =
     (weeksFirstBand > 0 ? 1 : 0) + (weeksSecondBand > 0 ? 1 : 0);
 
@@ -231,7 +224,7 @@ export default function BurnContributionCalendar({
             allCells={cells}
             selectedDate={selectedDate}
             onSelectDate={onSelectDate}
-            getBurnedForDay={getBurnedForDay}
+            dayHasActivity={dayHasActivity}
           />
         ) : null}
 
@@ -244,32 +237,11 @@ export default function BurnContributionCalendar({
             allCells={cells}
             selectedDate={selectedDate}
             onSelectDate={onSelectDate}
-            getBurnedForDay={getBurnedForDay}
+            dayHasActivity={dayHasActivity}
           />
         ) : null}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
-        <span className="shrink-0">Less</span>
-        <div
-          className="flex gap-1 [--burn-accent:var(--color-blue-600)] [--burn-empty:var(--color-slate-200)]"
-          aria-hidden="true"
-        >
-          {legendSteps.map((t, i) => (
-            <span
-              key={i}
-              className="size-[11px] rounded-sm border border-slate-300/90"
-              style={{
-                backgroundColor: `color-mix(in oklab, var(--burn-accent) ${t * 100}%, var(--burn-empty) 100%)`,
-              }}
-            />
-          ))}
-        </div>
-        <span className="shrink-0">More</span>
-        <span className="text-slate-500">
-          (intensity scales to {BURN_INTENSITY_MAX_CAL} cal burned)
-        </span>
-      </div>
     </div>
   );
 }

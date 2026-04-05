@@ -260,9 +260,10 @@ export default function CalorieTrackerApp() {
     new Set([...Object.keys(foodByDate), ...Object.keys(workoutsByDate)]),
   ).sort((a, b) => b.localeCompare(a));
 
-  const getBurnedForDay = useCallback(
-    (iso: string) => sumCalories(workoutsByDate[iso] ?? []),
-    [workoutsByDate],
+  const dayHasActivity = useCallback(
+    (iso: string) =>
+      (foodByDate[iso]?.length ?? 0) > 0 || (workoutsByDate[iso]?.length ?? 0) > 0,
+    [foodByDate, workoutsByDate],
   );
 
   const summaryDate = selectedSummaryDate;
@@ -381,7 +382,7 @@ export default function CalorieTrackerApp() {
               todayIso={todayIso}
               selectedDate={selectedSummaryDate}
               onSelectDate={setSelectedSummaryDate}
-              getBurnedForDay={getBurnedForDay}
+              dayHasActivity={dayHasActivity}
             />
           </div>
           <div>
