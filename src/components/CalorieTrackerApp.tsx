@@ -46,14 +46,16 @@ export default function CalorieTrackerApp() {
   );
   const todayIso = getLocalTodayIso();
 
-  const [editTarget, setEditTarget] = useState<
-    null | { kind: "food" | "workout"; entry: Entry }
-  >(null);
+  const [editTarget, setEditTarget] = useState<null | {
+    kind: "food" | "workout";
+    entry: Entry;
+  }>(null);
   const [editCaloriesInput, setEditCaloriesInput] = useState("");
 
-  const [deleteTarget, setDeleteTarget] = useState<
-    null | { kind: "food" | "workout"; entry: Entry }
-  >(null);
+  const [deleteTarget, setDeleteTarget] = useState<null | {
+    kind: "food" | "workout";
+    entry: Entry;
+  }>(null);
 
   const backupMenuRef = useRef<HTMLDivElement>(null);
   const backupMenuButtonRef = useRef<HTMLButtonElement>(null);

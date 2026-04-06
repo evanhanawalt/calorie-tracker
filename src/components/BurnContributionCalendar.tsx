@@ -24,7 +24,11 @@ function monthLabelForIso(iso: string): string {
   return d.toLocaleDateString("en-US", { month: "short" });
 }
 
-function cellAriaLabel(iso: string, hasActivity: boolean, isFuture: boolean): string {
+function cellAriaLabel(
+  iso: string,
+  hasActivity: boolean,
+  isFuture: boolean,
+): string {
   const datePart = formatDateForDisplay(iso);
   if (isFuture) return `${datePart}, future date`;
   if (!hasActivity) return `${datePart}, no activity logged`;
@@ -241,7 +245,6 @@ export default function BurnContributionCalendar({
           />
         ) : null}
       </div>
-
     </div>
   );
 }
