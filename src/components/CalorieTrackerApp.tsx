@@ -19,6 +19,7 @@ import {
   getLocalTodayIso,
   trackerReducer,
   type Entry,
+  type EntryStream,
 } from "../lib/calorieTrackerStorage";
 import {
   isLogDateAllowed,
@@ -28,6 +29,62 @@ import BurnContributionCalendar from "./BurnContributionCalendar";
 import TrackerDialog from "./TrackerDialog";
 import { SvgGitHubMark, SvgSaveDisk, SvgSquarePen, SvgTrash } from "../svgs";
 
+const STREAM_ORDER: EntryStream[] = ["food", "workout"];
+
+type StreamUi = {
+  logSectionTitle: string;
+  formId: string;
+  inputId: string;
+  fieldLabel: string;
+  submitLabel: string;
+  submitButtonClass: string;
+  invalidLogCalories: string;
+  addedMessage: string;
+  listHeading: string;
+  listEmptyText: string;
+  listKeyPrefix: string;
+  editSuccess: string;
+  deleteSuccess: string;
+  singular: string;
+};
+
+const STREAM_UI: Record<EntryStream, StreamUi> = {
+  food: {
+    logSectionTitle: "Add Meal",
+    formId: "food-form",
+    inputId: "food-calories",
+    fieldLabel: "Calories",
+    submitLabel: "Add Meal",
+    submitButtonClass:
+      "rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700",
+    invalidLogCalories: "Please enter valid calories.",
+    addedMessage: "Meal added.",
+    listHeading: "Meals",
+    listEmptyText: "No meals logged",
+    listKeyPrefix: "food",
+    editSuccess: "Meal updated.",
+    deleteSuccess: "Meal deleted.",
+    singular: "meal",
+  },
+  workout: {
+    logSectionTitle: "Add Workout",
+    formId: "workout-form",
+    inputId: "workout-calories",
+    fieldLabel: "Calories Burned",
+    submitLabel: "Add Workout",
+    submitButtonClass:
+      "rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700",
+    invalidLogCalories: "Please enter valid calories burned.",
+    addedMessage: "Workout added.",
+    listHeading: "Workouts",
+    listEmptyText: "No workouts logged",
+    listKeyPrefix: "wo",
+    editSuccess: "Workout updated.",
+    deleteSuccess: "Workout deleted.",
+    singular: "workout",
+  },
+};
+
 export default function CalorieTrackerApp() {
   const [state, dispatch] = useReducer(
     trackerReducer,
@@ -36,8 +93,9 @@ export default function CalorieTrackerApp() {
   );
   const { foodEntries, workoutEntries } = state;
 
-  const [foodCalories, setFoodCalories] = useState("");
-  const [workoutCalories, setWorkoutCalories] = useState("");
+  const [calorieInputs, setCalorieInputs] = useState<Record<EntryStream, string>>(
+    { food: "", workout: "" },
+  );
   const [statusMessage, setStatusMessage] = useState("");
   const [statusIsError, setStatusIsError] = useState(false);
   const [backupMenuOpen, setBackupMenuOpen] = useState(false);
@@ -47,13 +105,13 @@ export default function CalorieTrackerApp() {
   const todayIso = getLocalTodayIso();
 
   const [editTarget, setEditTarget] = useState<null | {
-    kind: "food" | "workout";
+    stream: EntryStream;
     entry: Entry;
   }>(null);
   const [editCaloriesInput, setEditCaloriesInput] = useState("");
 
   const [deleteTarget, setDeleteTarget] = useState<null | {
-    kind: "food" | "workout";
+    stream: EntryStream;
     entry: Entry;
   }>(null);
 
@@ -66,38 +124,22 @@ export default function CalorieTrackerApp() {
     setStatusIsError(isError);
   }
 
-  function onFoodSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function onLogSubmit(stream: EntryStream, e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    const ui = STREAM_UI[stream];
     const date = selectedSummaryDate;
-    const calories = parseNonNegativeCalories(Number(foodCalories));
+    const calories = parseNonNegativeCalories(Number(calorieInputs[stream]));
     if (!isLogDateAllowed(date, todayIso)) {
       setStatus("Pick a day on the calendar (not a future date).", true);
       return;
     }
     if (calories === null) {
-      setStatus("Please enter valid calories.", true);
+      setStatus(ui.invalidLogCalories, true);
       return;
     }
-    dispatch({ type: "addFood", date, calories });
-    setFoodCalories("");
-    setStatus("Meal added.");
-  }
-
-  function onWorkoutSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const date = selectedSummaryDate;
-    const calories = parseNonNegativeCalories(Number(workoutCalories));
-    if (!isLogDateAllowed(date, todayIso)) {
-      setStatus("Pick a day on the calendar (not a future date).", true);
-      return;
-    }
-    if (calories === null) {
-      setStatus("Please enter valid calories burned.", true);
-      return;
-    }
-    dispatch({ type: "addWorkout", date, calories });
-    setWorkoutCalories("");
-    setStatus("Workout added.");
+    dispatch({ type: "addEntry", stream, date, calories });
+    setCalorieInputs((prev) => ({ ...prev, [stream]: "" }));
+    setStatus(ui.addedMessage);
   }
 
   async function onDownloadBackup() {
@@ -137,8 +179,8 @@ export default function CalorieTrackerApp() {
     e.target.value = "";
   }
 
-  function openEditDialog(type: "food" | "workout", entry: Entry) {
-    setEditTarget({ kind: type, entry });
+  function openEditDialog(stream: EntryStream, entry: Entry) {
+    setEditTarget({ stream, entry });
     setEditCaloriesInput(String(entry.calories));
   }
 
@@ -149,31 +191,23 @@ export default function CalorieTrackerApp() {
   function confirmEdit() {
     if (!editTarget) return;
     const calories = parseNonNegativeCalories(Number(editCaloriesInput));
-    const label = editTarget.kind === "food" ? "meal" : "workout";
+    const singular = STREAM_UI[editTarget.stream].singular;
     if (calories === null) {
-      setStatus(`Please enter a valid ${label} calories value.`, true);
+      setStatus(`Please enter a valid ${singular} calories value.`, true);
       return;
     }
-    if (editTarget.kind === "food") {
-      dispatch({
-        type: "updateFoodCalories",
-        entry: editTarget.entry,
-        calories,
-      });
-      setStatus("Meal updated.");
-    } else {
-      dispatch({
-        type: "updateWorkoutCalories",
-        entry: editTarget.entry,
-        calories,
-      });
-      setStatus("Workout updated.");
-    }
+    dispatch({
+      type: "updateEntryCalories",
+      stream: editTarget.stream,
+      entry: editTarget.entry,
+      calories,
+    });
+    setStatus(STREAM_UI[editTarget.stream].editSuccess);
     closeEditDialog();
   }
 
-  function openDeleteDialog(type: "food" | "workout", entry: Entry) {
-    setDeleteTarget({ kind: type, entry });
+  function openDeleteDialog(stream: EntryStream, entry: Entry) {
+    setDeleteTarget({ stream, entry });
   }
 
   function closeDeleteDialog() {
@@ -182,21 +216,13 @@ export default function CalorieTrackerApp() {
 
   function confirmDelete() {
     if (!deleteTarget) return;
-    if (deleteTarget.kind === "food") {
-      dispatch({
-        type: "deleteFood",
-        date: deleteTarget.entry.date,
-        count: deleteTarget.entry.count,
-      });
-      setStatus("Meal deleted.");
-    } else {
-      dispatch({
-        type: "deleteWorkout",
-        date: deleteTarget.entry.date,
-        count: deleteTarget.entry.count,
-      });
-      setStatus("Workout deleted.");
-    }
+    dispatch({
+      type: "deleteEntry",
+      stream: deleteTarget.stream,
+      date: deleteTarget.entry.date,
+      count: deleteTarget.entry.count,
+    });
+    setStatus(STREAM_UI[deleteTarget.stream].deleteSuccess);
     closeDeleteDialog();
   }
 
@@ -251,26 +277,25 @@ export default function CalorieTrackerApp() {
 
   const summaryDate = selectedSummaryDate;
 
-  const editTitle =
-    editTarget?.kind === "food"
-      ? "Edit meal calories"
-      : editTarget?.kind === "workout"
-        ? "Edit workout calories"
-        : "";
+  const listByStream: Record<
+    EntryStream,
+    { entries: Entry[]; total: number }
+  > = {
+    food: { entries: meals, total: consumed },
+    workout: { entries: workouts, total: burned },
+  };
 
-  const deleteDescription = deleteTarget
-    ? (() => {
-        const label = deleteTarget.kind === "food" ? "meal" : "workout";
-        return `Delete ${label} ${deleteTarget.entry.count} (${deleteTarget.entry.calories} cal) on ${formatDateForDisplay(deleteTarget.entry.date)}?`;
-      })()
+  const editTitle = editTarget
+    ? `Edit ${STREAM_UI[editTarget.stream].singular} calories`
     : "";
 
-  const deleteTitle =
-    deleteTarget?.kind === "food"
-      ? "Delete meal?"
-      : deleteTarget?.kind === "workout"
-        ? "Delete workout?"
-        : "";
+  const deleteDescription = deleteTarget
+    ? `Delete ${STREAM_UI[deleteTarget.stream].singular} ${deleteTarget.entry.count} (${deleteTarget.entry.calories} cal) on ${formatDateForDisplay(deleteTarget.entry.date)}?`
+    : "";
+
+  const deleteTitle = deleteTarget
+    ? `Delete ${STREAM_UI[deleteTarget.stream].singular}?`
+    : "";
 
   return (
     <>
@@ -421,61 +446,49 @@ export default function CalorieTrackerApp() {
               dayHasActivity={dayHasActivity}
             />
           </div>
-          <div>
-            <h2 className="mb-3 text-lg font-semibold">Add Meal</h2>
-            <form id="food-form" className="space-y-3" onSubmit={onFoodSubmit}>
-              <label className="block text-sm">
-                <span className="mb-1 block font-medium">Calories</span>
-                <input
-                  id="food-calories"
-                  name="calories"
-                  type="number"
-                  min={0}
-                  step={1}
-                  required
-                  className="w-full rounded-md border border-slate-300 px-3 py-2"
-                  value={foodCalories}
-                  onChange={(ev) => setFoodCalories(ev.target.value)}
-                />
-              </label>
-              <button
-                type="submit"
-                className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
-              >
-                Add Meal
-              </button>
-            </form>
-          </div>
-
-          <div>
-            <h2 className="mb-3 text-lg font-semibold">Add Workout</h2>
-            <form
-              id="workout-form"
-              className="space-y-3"
-              onSubmit={onWorkoutSubmit}
-            >
-              <label className="block text-sm">
-                <span className="mb-1 block font-medium">Calories Burned</span>
-                <input
-                  id="workout-calories"
-                  name="calories"
-                  type="number"
-                  min={0}
-                  step={1}
-                  required
-                  className="w-full rounded-md border border-slate-300 px-3 py-2"
-                  value={workoutCalories}
-                  onChange={(ev) => setWorkoutCalories(ev.target.value)}
-                />
-              </label>
-              <button
-                type="submit"
-                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-              >
-                Add Workout
-              </button>
-            </form>
-          </div>
+          {STREAM_ORDER.map((stream) => {
+            const ui = STREAM_UI[stream];
+            return (
+              <div key={stream}>
+                <h2 className="mb-3 text-lg font-semibold">
+                  {ui.logSectionTitle}
+                </h2>
+                <form
+                  id={ui.formId}
+                  className="space-y-3"
+                  onSubmit={(e) => onLogSubmit(stream, e)}
+                >
+                  <label className="block text-sm">
+                    <span className="mb-1 block font-medium">
+                      {ui.fieldLabel}
+                    </span>
+                    <input
+                      id={ui.inputId}
+                      name="calories"
+                      type="number"
+                      min={0}
+                      step={1}
+                      required
+                      className="w-full rounded-md border border-slate-300 px-3 py-2"
+                      value={calorieInputs[stream]}
+                      onChange={(ev) =>
+                        setCalorieInputs((prev) => ({
+                          ...prev,
+                          [stream]: ev.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    className={ui.submitButtonClass}
+                  >
+                    {ui.submitLabel}
+                  </button>
+                </form>
+              </div>
+            );
+          })}
           <div className="md:col-span-2">
             <div id="daily-summary" className="space-y-4">
               {allDates.length === 0 ? (
@@ -485,106 +498,64 @@ export default function CalorieTrackerApp() {
               ) : null}
               <article className="rounded-lg border border-slate-200 p-4">
                 <div className="grid gap-3 text-sm md:grid-cols-2">
-                  <div>
-                    <div className="flex justify-between items-center">
-                      <h4 className="font-medium">Meals</h4>
-                      <p className="text-sm text-slate-700">
-                        Total: {consumed}
-                      </p>
-                    </div>
-                    <ul className="mt-1 list-inside list-disc text-slate-700">
-                      {meals.length ? (
-                        meals.map((entry) => (
-                          <li
-                            key={`${summaryDate}-food-${entry.count}`}
-                            className="flex items-center gap-2"
-                          >
-                            <span className="min-w-0 flex-1 leading-5">
-                              {entryItemLabel("food", entry)}
-                            </span>
-                            <span className="inline-flex shrink-0 items-center gap-1">
-                              <button
-                                type="button"
-                                title="Edit"
-                                aria-label={`Edit meal ${entry.count}`}
-                                className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
-                                onClick={() => openEditDialog("food", entry)}
+                  {STREAM_ORDER.map((stream) => {
+                    const ui = STREAM_UI[stream];
+                    const { entries, total } = listByStream[stream];
+                    return (
+                      <div key={stream}>
+                        <div className="flex justify-between items-center">
+                          <h4 className="font-medium">{ui.listHeading}</h4>
+                          <p className="text-sm text-slate-700">
+                            Total: {total}
+                          </p>
+                        </div>
+                        <ul className="mt-1 list-inside list-disc text-slate-700">
+                          {entries.length ? (
+                            entries.map((entry) => (
+                              <li
+                                key={`${summaryDate}-${ui.listKeyPrefix}-${entry.count}`}
+                                className="flex items-center gap-2"
                               >
-                                <SvgSquarePen
-                                  className="size-4"
-                                  aria-hidden="true"
-                                />
-                              </button>
-                              <button
-                                type="button"
-                                title="Delete"
-                                aria-label={`Delete meal ${entry.count}`}
-                                className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-600 hover:bg-red-50 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200"
-                                onClick={() => openDeleteDialog("food", entry)}
-                              >
-                                <SvgTrash
-                                  className="size-4"
-                                  aria-hidden="true"
-                                />
-                              </button>
-                            </span>
-                          </li>
-                        ))
-                      ) : (
-                        <li>No meals logged</li>
-                      )}
-                    </ul>
-                  </div>
-                  <div>
-                    <div className="flex justify-between items-center">
-                      <h4 className="font-medium">Workouts</h4>
-                      <p className="text-sm text-slate-700">Total: {burned}</p>
-                    </div>
-                    <ul className="mt-1 list-inside list-disc text-slate-700">
-                      {workouts.length ? (
-                        workouts.map((entry) => (
-                          <li
-                            key={`${summaryDate}-wo-${entry.count}`}
-                            className="flex items-center gap-2"
-                          >
-                            <span className="min-w-0 flex-1 leading-5">
-                              {entryItemLabel("workout", entry)}
-                            </span>
-                            <span className="inline-flex shrink-0 items-center gap-1">
-                              <button
-                                type="button"
-                                title="Edit"
-                                aria-label={`Edit workout ${entry.count}`}
-                                className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
-                                onClick={() => openEditDialog("workout", entry)}
-                              >
-                                <SvgSquarePen
-                                  className="size-4"
-                                  aria-hidden="true"
-                                />
-                              </button>
-                              <button
-                                type="button"
-                                title="Delete"
-                                aria-label={`Delete workout ${entry.count}`}
-                                className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-600 hover:bg-red-50 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200"
-                                onClick={() =>
-                                  openDeleteDialog("workout", entry)
-                                }
-                              >
-                                <SvgTrash
-                                  className="size-4"
-                                  aria-hidden="true"
-                                />
-                              </button>
-                            </span>
-                          </li>
-                        ))
-                      ) : (
-                        <li>No workouts logged</li>
-                      )}
-                    </ul>
-                  </div>
+                                <span className="min-w-0 flex-1 leading-5">
+                                  {entryItemLabel(stream, entry)}
+                                </span>
+                                <span className="inline-flex shrink-0 items-center gap-1">
+                                  <button
+                                    type="button"
+                                    title="Edit"
+                                    aria-label={`Edit ${ui.singular} ${entry.count}`}
+                                    className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+                                    onClick={() => openEditDialog(stream, entry)}
+                                  >
+                                    <SvgSquarePen
+                                      className="size-4"
+                                      aria-hidden="true"
+                                    />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    title="Delete"
+                                    aria-label={`Delete ${ui.singular} ${entry.count}`}
+                                    className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-600 hover:bg-red-50 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200"
+                                    onClick={() =>
+                                      openDeleteDialog(stream, entry)
+                                    }
+                                  >
+                                    <SvgTrash
+                                      className="size-4"
+                                      aria-hidden="true"
+                                    />
+                                  </button>
+                                </span>
+                              </li>
+                            ))
+                          ) : (
+                            <li>{ui.listEmptyText}</li>
+                          )}
+                        </ul>
+                      </div>
+                    );
+                  })}
                 </div>
               </article>
             </div>

@@ -64,6 +64,9 @@ export type TrackerState = {
   workoutEntries: Entry[];
 };
 
+/** Which parallel entry list a mutation targets (meals vs workouts). */
+export type EntryStream = "food" | "workout";
+
 export function getInitialTrackerState(): TrackerState {
   return {
     foodEntries: loadFoodEntries(),
@@ -77,12 +80,34 @@ export type TrackerAction =
       foodEntries: Entry[];
       workoutEntries: Entry[];
     }
-  | { type: "addFood"; date: string; calories: number }
-  | { type: "addWorkout"; date: string; calories: number }
-  | { type: "updateFoodCalories"; entry: Entry; calories: number }
-  | { type: "updateWorkoutCalories"; entry: Entry; calories: number }
-  | { type: "deleteFood"; date: string; count: number }
-  | { type: "deleteWorkout"; date: string; count: number };
+  | { type: "addEntry"; stream: EntryStream; date: string; calories: number }
+  | {
+      type: "updateEntryCalories";
+      stream: EntryStream;
+      entry: Entry;
+      calories: number;
+    }
+  | { type: "deleteEntry"; stream: EntryStream; date: string; count: number };
+
+function persistStreamEntries(
+  state: TrackerState,
+  stream: EntryStream,
+  nextForStream: Entry[],
+): TrackerState {
+  if (stream === "food") {
+    saveEntries(nextForStream, state.workoutEntries);
+    return { ...state, foodEntries: nextForStream };
+  }
+  saveEntries(state.foodEntries, nextForStream);
+  return { ...state, workoutEntries: nextForStream };
+}
+
+function entriesForStream(
+  state: TrackerState,
+  stream: EntryStream,
+): Entry[] {
+  return stream === "food" ? state.foodEntries : state.workoutEntries;
+}
 
 /**
  * Applies mutations and persists to `localStorage` on every transition.
@@ -97,69 +122,37 @@ export function trackerReducer(
       saveEntries(foodEntries, workoutEntries);
       return { foodEntries, workoutEntries };
     }
-    case "addFood": {
-      const nextCount = getNextCount(state.foodEntries, action.date);
-      const foodEntries = [
-        ...state.foodEntries,
+    case "addEntry": {
+      const list = entriesForStream(state, action.stream);
+      const nextCount = getNextCount(list, action.date);
+      const nextForStream = [
+        ...list,
         {
           date: action.date,
           calories: Math.max(0, Math.round(action.calories)),
           count: nextCount,
         },
       ];
-      saveEntries(foodEntries, state.workoutEntries);
-      return { ...state, foodEntries };
+      return persistStreamEntries(state, action.stream, nextForStream);
     }
-    case "addWorkout": {
-      const nextCount = getNextCount(state.workoutEntries, action.date);
-      const workoutEntries = [
-        ...state.workoutEntries,
-        {
-          date: action.date,
-          calories: Math.max(0, Math.round(action.calories)),
-          count: nextCount,
-        },
-      ];
-      saveEntries(state.foodEntries, workoutEntries);
-      return { ...state, workoutEntries };
-    }
-    case "updateFoodCalories": {
+    case "updateEntryCalories": {
       const roundCal = Math.max(0, Math.round(action.calories));
-      const foodEntries = state.foodEntries.map((e) =>
+      const list = entriesForStream(state, action.stream);
+      const nextForStream = list.map((e) =>
         e.date === action.entry.date && e.count === action.entry.count
           ? { ...e, calories: roundCal }
           : e,
       );
-      saveEntries(foodEntries, state.workoutEntries);
-      return { ...state, foodEntries };
+      return persistStreamEntries(state, action.stream, nextForStream);
     }
-    case "updateWorkoutCalories": {
-      const roundCal = Math.max(0, Math.round(action.calories));
-      const workoutEntries = state.workoutEntries.map((e) =>
-        e.date === action.entry.date && e.count === action.entry.count
-          ? { ...e, calories: roundCal }
-          : e,
-      );
-      saveEntries(state.foodEntries, workoutEntries);
-      return { ...state, workoutEntries };
-    }
-    case "deleteFood": {
-      const foodEntries = deleteEntryAndRenumber(
-        state.foodEntries,
+    case "deleteEntry": {
+      const list = entriesForStream(state, action.stream);
+      const nextForStream = deleteEntryAndRenumber(
+        list,
         action.date,
         action.count,
       );
-      saveEntries(foodEntries, state.workoutEntries);
-      return { ...state, foodEntries };
-    }
-    case "deleteWorkout": {
-      const workoutEntries = deleteEntryAndRenumber(
-        state.workoutEntries,
-        action.date,
-        action.count,
-      );
-      saveEntries(state.foodEntries, workoutEntries);
-      return { ...state, workoutEntries };
+      return persistStreamEntries(state, action.stream, nextForStream);
     }
   }
 }
