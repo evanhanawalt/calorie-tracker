@@ -1,28 +1,41 @@
-import { useCallback, useEffect, useId, useRef, useState } from "react";
 import {
-  deleteEntryAndRenumber,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
+import {
+  downloadTrackerBackup,
+  parseTrackerBackupFile,
+} from "../lib/calorieTrackerBackup";
+import {
   entryItemLabel,
   formatDateForDisplay,
+  getDailyTrackerDerivations,
+  getInitialTrackerState,
   getLocalTodayIso,
-  getNextCount,
-  groupedByDate,
-  loadFoodEntries,
-  loadWorkoutEntries,
-  saveEntries,
-  sanitizeEntries,
-  sumCalories,
+  trackerReducer,
   type Entry,
 } from "../lib/calorieTrackerStorage";
+import {
+  isLogDateAllowed,
+  parseNonNegativeCalories,
+} from "../lib/calorieTrackerValidators";
 import BurnContributionCalendar from "./BurnContributionCalendar";
+import TrackerDialog from "./TrackerDialog";
 import { SvgGitHubMark, SvgSaveDisk, SvgSquarePen, SvgTrash } from "../svgs";
 
 export default function CalorieTrackerApp() {
-  const [foodEntries, setFoodEntries] = useState<Entry[]>(() =>
-    loadFoodEntries(),
+  const [state, dispatch] = useReducer(
+    trackerReducer,
+    undefined,
+    getInitialTrackerState,
   );
-  const [workoutEntries, setWorkoutEntries] = useState<Entry[]>(() =>
-    loadWorkoutEntries(),
-  );
+  const { foodEntries, workoutEntries } = state;
+
   const [foodCalories, setFoodCalories] = useState("");
   const [workoutCalories, setWorkoutCalories] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
@@ -32,6 +45,15 @@ export default function CalorieTrackerApp() {
     getLocalTodayIso(),
   );
   const todayIso = getLocalTodayIso();
+
+  const [editTarget, setEditTarget] = useState<
+    null | { kind: "food" | "workout"; entry: Entry }
+  >(null);
+  const [editCaloriesInput, setEditCaloriesInput] = useState("");
+
+  const [deleteTarget, setDeleteTarget] = useState<
+    null | { kind: "food" | "workout"; entry: Entry }
+  >(null);
 
   const backupMenuRef = useRef<HTMLDivElement>(null);
   const backupMenuButtonRef = useRef<HTMLButtonElement>(null);
@@ -45,23 +67,16 @@ export default function CalorieTrackerApp() {
   function onFoodSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const date = selectedSummaryDate;
-    const calories = Number(foodCalories);
-    if (!date || date > todayIso) {
+    const calories = parseNonNegativeCalories(Number(foodCalories));
+    if (!isLogDateAllowed(date, todayIso)) {
       setStatus("Pick a day on the calendar (not a future date).", true);
       return;
     }
-    if (!Number.isFinite(calories) || calories < 0) {
+    if (calories === null) {
       setStatus("Please enter valid calories.", true);
       return;
     }
-    const nextCount = getNextCount(foodEntries, date);
-    const roundCal = Math.round(calories);
-    const nextFood = [
-      ...foodEntries,
-      { date, calories: roundCal, count: nextCount },
-    ];
-    setFoodEntries(nextFood);
-    saveEntries(nextFood, workoutEntries);
+    dispatch({ type: "addFood", date, calories });
     setFoodCalories("");
     setStatus("Meal added.");
   }
@@ -69,70 +84,26 @@ export default function CalorieTrackerApp() {
   function onWorkoutSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const date = selectedSummaryDate;
-    const calories = Number(workoutCalories);
-    if (!date || date > todayIso) {
+    const calories = parseNonNegativeCalories(Number(workoutCalories));
+    if (!isLogDateAllowed(date, todayIso)) {
       setStatus("Pick a day on the calendar (not a future date).", true);
       return;
     }
-    if (!Number.isFinite(calories) || calories < 0) {
+    if (calories === null) {
       setStatus("Please enter valid calories burned.", true);
       return;
     }
-    const nextCount = getNextCount(workoutEntries, date);
-    const roundCal = Math.round(calories);
-    const nextWorkouts = [
-      ...workoutEntries,
-      { date, calories: roundCal, count: nextCount },
-    ];
-    setWorkoutEntries(nextWorkouts);
-    saveEntries(foodEntries, nextWorkouts);
+    dispatch({ type: "addWorkout", date, calories });
     setWorkoutCalories("");
     setStatus("Workout added.");
   }
 
-  const DEFAULT_BACKUP_FILENAME = "calorie-tracker-backup.json";
-
   async function onDownloadBackup() {
-    const payload = {
+    const { saved } = await downloadTrackerBackup({
       foodEntries,
       workoutEntries,
-    };
-    const json = JSON.stringify(payload, null, 2);
-    const blob = new Blob([json], { type: "application/json" });
-
-    if (typeof window.showSaveFilePicker === "function") {
-      try {
-        const handle = await window.showSaveFilePicker({
-          startIn: "downloads",
-          suggestedName: DEFAULT_BACKUP_FILENAME,
-          types: [
-            {
-              description: "JSON",
-              accept: { "application/json": [".json"] },
-            },
-          ],
-        });
-        const writable = await handle.createWritable();
-        await writable.write(blob);
-        await writable.close();
-        setStatus("Backup saved.");
-        return;
-      } catch (err) {
-        if (err instanceof DOMException && err.name === "AbortError") {
-          return;
-        }
-      }
-    }
-
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = DEFAULT_BACKUP_FILENAME;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-    setStatus("Backup saved.");
+    });
+    if (saved) setStatus("Backup saved.");
   }
 
   async function onUploadBackupChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -140,19 +111,20 @@ export default function CalorieTrackerApp() {
     if (!file) return;
     try {
       const text = await file.text();
-      const parsed = JSON.parse(text) as {
-        foodEntries?: unknown;
-        workoutEntries?: unknown;
-      };
-      const nextFood = sanitizeEntries(
-        Array.isArray(parsed.foodEntries) ? parsed.foodEntries : [],
-      );
-      const nextWorkouts = sanitizeEntries(
-        Array.isArray(parsed.workoutEntries) ? parsed.workoutEntries : [],
-      );
-      setFoodEntries(nextFood);
-      setWorkoutEntries(nextWorkouts);
-      saveEntries(nextFood, nextWorkouts);
+      const parsed = parseTrackerBackupFile(text);
+      if (!parsed.ok) {
+        setStatus(
+          "Could not restore backup. Make sure the file is valid JSON.",
+          true,
+        );
+        e.target.value = "";
+        return;
+      }
+      dispatch({
+        type: "restore",
+        foodEntries: parsed.foodEntries,
+        workoutEntries: parsed.workoutEntries,
+      });
       setStatus("Backup restored successfully.");
     } catch {
       setStatus(
@@ -163,72 +135,67 @@ export default function CalorieTrackerApp() {
     e.target.value = "";
   }
 
-  function onEditEntry(type: "food" | "workout", entry: Entry) {
-    const label = type === "food" ? "meal" : "workout";
-    const next = window.prompt(
-      `Edit ${label} calories:`,
-      String(entry.calories),
-    );
-    if (next === null) return;
+  function openEditDialog(type: "food" | "workout", entry: Entry) {
+    setEditTarget({ kind: type, entry });
+    setEditCaloriesInput(String(entry.calories));
+  }
 
-    const calories = Number(next);
-    if (!Number.isFinite(calories) || calories < 0) {
+  function closeEditDialog() {
+    setEditTarget(null);
+  }
+
+  function confirmEdit() {
+    if (!editTarget) return;
+    const calories = parseNonNegativeCalories(Number(editCaloriesInput));
+    const label = editTarget.kind === "food" ? "meal" : "workout";
+    if (calories === null) {
       setStatus(`Please enter a valid ${label} calories value.`, true);
       return;
     }
-
-    const roundCal = Math.round(calories);
-
-    if (type === "food") {
-      const nextFood = foodEntries.map((e) =>
-        e.date === entry.date && e.count === entry.count
-          ? { ...e, calories: roundCal }
-          : e,
-      );
-      setFoodEntries(nextFood);
-      saveEntries(nextFood, workoutEntries);
+    if (editTarget.kind === "food") {
+      dispatch({
+        type: "updateFoodCalories",
+        entry: editTarget.entry,
+        calories,
+      });
       setStatus("Meal updated.");
-      return;
+    } else {
+      dispatch({
+        type: "updateWorkoutCalories",
+        entry: editTarget.entry,
+        calories,
+      });
+      setStatus("Workout updated.");
     }
-
-    const nextWorkouts = workoutEntries.map((e) =>
-      e.date === entry.date && e.count === entry.count
-        ? { ...e, calories: roundCal }
-        : e,
-    );
-    setWorkoutEntries(nextWorkouts);
-    saveEntries(foodEntries, nextWorkouts);
-    setStatus("Workout updated.");
+    closeEditDialog();
   }
 
-  function onDeleteEntry(type: "food" | "workout", entry: Entry) {
-    const label = type === "food" ? "meal" : "workout";
-    if (
-      !window.confirm(
-        `Delete ${label} ${entry.count} (${entry.calories} cal) on ${formatDateForDisplay(entry.date)}?`,
-      )
-    ) {
-      return;
-    }
-    if (type === "food") {
-      const nextFood = deleteEntryAndRenumber(
-        foodEntries,
-        entry.date,
-        entry.count,
-      );
-      setFoodEntries(nextFood);
-      saveEntries(nextFood, workoutEntries);
+  function openDeleteDialog(type: "food" | "workout", entry: Entry) {
+    setDeleteTarget({ kind: type, entry });
+  }
+
+  function closeDeleteDialog() {
+    setDeleteTarget(null);
+  }
+
+  function confirmDelete() {
+    if (!deleteTarget) return;
+    if (deleteTarget.kind === "food") {
+      dispatch({
+        type: "deleteFood",
+        date: deleteTarget.entry.date,
+        count: deleteTarget.entry.count,
+      });
       setStatus("Meal deleted.");
-      return;
+    } else {
+      dispatch({
+        type: "deleteWorkout",
+        date: deleteTarget.entry.date,
+        count: deleteTarget.entry.count,
+      });
+      setStatus("Workout deleted.");
     }
-    const nextWorkouts = deleteEntryAndRenumber(
-      workoutEntries,
-      entry.date,
-      entry.count,
-    );
-    setWorkoutEntries(nextWorkouts);
-    saveEntries(foodEntries, nextWorkouts);
-    setStatus("Workout deleted.");
+    closeDeleteDialog();
   }
 
   useEffect(() => {
@@ -254,31 +221,98 @@ export default function CalorieTrackerApp() {
     };
   }, [backupMenuOpen]);
 
-  const foodByDate = groupedByDate(foodEntries);
-  const workoutsByDate = groupedByDate(workoutEntries);
-  const allDates = Array.from(
-    new Set([...Object.keys(foodByDate), ...Object.keys(workoutsByDate)]),
-  ).sort((a, b) => b.localeCompare(a));
+  const {
+    allDates,
+    foodByDate,
+    workoutsByDate,
+    meals,
+    workouts,
+    consumed,
+    burned,
+    net,
+  } = useMemo(
+    () =>
+      getDailyTrackerDerivations(
+        foodEntries,
+        workoutEntries,
+        selectedSummaryDate,
+      ),
+    [foodEntries, workoutEntries, selectedSummaryDate],
+  );
 
   const dayHasActivity = useCallback(
     (iso: string) =>
-      (foodByDate[iso]?.length ?? 0) > 0 || (workoutsByDate[iso]?.length ?? 0) > 0,
+      (foodByDate[iso]?.length ?? 0) > 0 ||
+      (workoutsByDate[iso]?.length ?? 0) > 0,
     [foodByDate, workoutsByDate],
   );
 
   const summaryDate = selectedSummaryDate;
-  const meals = (foodByDate[summaryDate] ?? [])
-    .slice()
-    .sort((a, b) => a.count - b.count);
-  const workouts = (workoutsByDate[summaryDate] ?? [])
-    .slice()
-    .sort((a, b) => a.count - b.count);
-  const consumed = sumCalories(meals);
-  const burned = sumCalories(workouts);
-  const net = consumed - burned;
+
+  const editTitle =
+    editTarget?.kind === "food"
+      ? "Edit meal calories"
+      : editTarget?.kind === "workout"
+        ? "Edit workout calories"
+        : "";
+
+  const deleteDescription = deleteTarget
+    ? (() => {
+        const label = deleteTarget.kind === "food" ? "meal" : "workout";
+        return `Delete ${label} ${deleteTarget.entry.count} (${deleteTarget.entry.calories} cal) on ${formatDateForDisplay(deleteTarget.entry.date)}?`;
+      })()
+    : "";
+
+  const deleteTitle =
+    deleteTarget?.kind === "food"
+      ? "Delete meal?"
+      : deleteTarget?.kind === "workout"
+        ? "Delete workout?"
+        : "";
 
   return (
     <>
+      <TrackerDialog
+        open={!!editTarget}
+        onClose={closeEditDialog}
+        title={editTitle}
+        primaryLabel="Save"
+        onPrimary={confirmEdit}
+        primaryDisabled={!editTarget}
+      >
+        <label className="block text-sm">
+          <span className="mb-1 block font-medium text-slate-800">
+            Calories
+          </span>
+          <input
+            type="number"
+            min={0}
+            step={1}
+            autoFocus
+            className="w-full rounded-md border border-slate-300 px-3 py-2"
+            value={editCaloriesInput}
+            onChange={(ev) => setEditCaloriesInput(ev.target.value)}
+            onKeyDown={(ev) => {
+              if (ev.key === "Enter") {
+                ev.preventDefault();
+                confirmEdit();
+              }
+            }}
+          />
+        </label>
+      </TrackerDialog>
+
+      <TrackerDialog
+        open={!!deleteTarget}
+        onClose={closeDeleteDialog}
+        title={deleteTitle}
+        description={deleteDescription}
+        primaryLabel="Delete"
+        primaryVariant="danger"
+        onPrimary={confirmDelete}
+        primaryDisabled={!deleteTarget}
+      />
+
       <nav
         className="sticky top-0 z-50 border-b border-slate-200/90 bg-white shadow-sm"
         aria-label="Primary"
@@ -472,7 +506,7 @@ export default function CalorieTrackerApp() {
                                 title="Edit"
                                 aria-label={`Edit meal ${entry.count}`}
                                 className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
-                                onClick={() => onEditEntry("food", entry)}
+                                onClick={() => openEditDialog("food", entry)}
                               >
                                 <SvgSquarePen
                                   className="size-4"
@@ -484,7 +518,7 @@ export default function CalorieTrackerApp() {
                                 title="Delete"
                                 aria-label={`Delete meal ${entry.count}`}
                                 className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-600 hover:bg-red-50 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200"
-                                onClick={() => onDeleteEntry("food", entry)}
+                                onClick={() => openDeleteDialog("food", entry)}
                               >
                                 <SvgTrash
                                   className="size-4"
@@ -520,7 +554,7 @@ export default function CalorieTrackerApp() {
                                 title="Edit"
                                 aria-label={`Edit workout ${entry.count}`}
                                 className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
-                                onClick={() => onEditEntry("workout", entry)}
+                                onClick={() => openEditDialog("workout", entry)}
                               >
                                 <SvgSquarePen
                                   className="size-4"
@@ -532,7 +566,9 @@ export default function CalorieTrackerApp() {
                                 title="Delete"
                                 aria-label={`Delete workout ${entry.count}`}
                                 className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-600 hover:bg-red-50 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200"
-                                onClick={() => onDeleteEntry("workout", entry)}
+                                onClick={() =>
+                                  openDeleteDialog("workout", entry)
+                                }
                               >
                                 <SvgTrash
                                   className="size-4"

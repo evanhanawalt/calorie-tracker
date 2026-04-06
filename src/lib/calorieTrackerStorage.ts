@@ -59,6 +59,111 @@ export function saveEntries(food: Entry[], workouts: Entry[]): void {
   localStorage.setItem(WORKOUT_STORAGE_KEY, JSON.stringify(workouts));
 }
 
+export type TrackerState = {
+  foodEntries: Entry[];
+  workoutEntries: Entry[];
+};
+
+export function getInitialTrackerState(): TrackerState {
+  return {
+    foodEntries: loadFoodEntries(),
+    workoutEntries: loadWorkoutEntries(),
+  };
+}
+
+export type TrackerAction =
+  | {
+      type: "restore";
+      foodEntries: Entry[];
+      workoutEntries: Entry[];
+    }
+  | { type: "addFood"; date: string; calories: number }
+  | { type: "addWorkout"; date: string; calories: number }
+  | { type: "updateFoodCalories"; entry: Entry; calories: number }
+  | { type: "updateWorkoutCalories"; entry: Entry; calories: number }
+  | { type: "deleteFood"; date: string; count: number }
+  | { type: "deleteWorkout"; date: string; count: number };
+
+/**
+ * Applies mutations and persists to `localStorage` on every transition.
+ */
+export function trackerReducer(
+  state: TrackerState,
+  action: TrackerAction,
+): TrackerState {
+  switch (action.type) {
+    case "restore": {
+      const { foodEntries, workoutEntries } = action;
+      saveEntries(foodEntries, workoutEntries);
+      return { foodEntries, workoutEntries };
+    }
+    case "addFood": {
+      const nextCount = getNextCount(state.foodEntries, action.date);
+      const foodEntries = [
+        ...state.foodEntries,
+        {
+          date: action.date,
+          calories: Math.max(0, Math.round(action.calories)),
+          count: nextCount,
+        },
+      ];
+      saveEntries(foodEntries, state.workoutEntries);
+      return { ...state, foodEntries };
+    }
+    case "addWorkout": {
+      const nextCount = getNextCount(state.workoutEntries, action.date);
+      const workoutEntries = [
+        ...state.workoutEntries,
+        {
+          date: action.date,
+          calories: Math.max(0, Math.round(action.calories)),
+          count: nextCount,
+        },
+      ];
+      saveEntries(state.foodEntries, workoutEntries);
+      return { ...state, workoutEntries };
+    }
+    case "updateFoodCalories": {
+      const roundCal = Math.max(0, Math.round(action.calories));
+      const foodEntries = state.foodEntries.map((e) =>
+        e.date === action.entry.date && e.count === action.entry.count
+          ? { ...e, calories: roundCal }
+          : e,
+      );
+      saveEntries(foodEntries, state.workoutEntries);
+      return { ...state, foodEntries };
+    }
+    case "updateWorkoutCalories": {
+      const roundCal = Math.max(0, Math.round(action.calories));
+      const workoutEntries = state.workoutEntries.map((e) =>
+        e.date === action.entry.date && e.count === action.entry.count
+          ? { ...e, calories: roundCal }
+          : e,
+      );
+      saveEntries(state.foodEntries, workoutEntries);
+      return { ...state, workoutEntries };
+    }
+    case "deleteFood": {
+      const foodEntries = deleteEntryAndRenumber(
+        state.foodEntries,
+        action.date,
+        action.count,
+      );
+      saveEntries(foodEntries, state.workoutEntries);
+      return { ...state, foodEntries };
+    }
+    case "deleteWorkout": {
+      const workoutEntries = deleteEntryAndRenumber(
+        state.workoutEntries,
+        action.date,
+        action.count,
+      );
+      saveEntries(state.foodEntries, workoutEntries);
+      return { ...state, workoutEntries };
+    }
+  }
+}
+
 export function getNextCount(entries: Entry[], date: string): number {
   const dayEntries = entries.filter((entry) => entry.date === date);
   if (dayEntries.length === 0) return 1;
@@ -103,6 +208,48 @@ export function groupedByDate(entries: Entry[]): Record<string, Entry[]> {
     groups[entry.date].push(entry);
   }
   return groups;
+}
+
+export type DailyTrackerDerivations = {
+  allDates: string[];
+  foodByDate: Record<string, Entry[]>;
+  workoutsByDate: Record<string, Entry[]>;
+  meals: Entry[];
+  workouts: Entry[];
+  consumed: number;
+  burned: number;
+  net: number;
+};
+
+/** Sorted day lists, per-date groups, and totals for the selected summary date. */
+export function getDailyTrackerDerivations(
+  foodEntries: Entry[],
+  workoutEntries: Entry[],
+  summaryDate: string,
+): DailyTrackerDerivations {
+  const foodByDate = groupedByDate(foodEntries);
+  const workoutsByDate = groupedByDate(workoutEntries);
+  const allDates = Array.from(
+    new Set([...Object.keys(foodByDate), ...Object.keys(workoutsByDate)]),
+  ).sort((a, b) => b.localeCompare(a));
+  const meals = (foodByDate[summaryDate] ?? [])
+    .slice()
+    .sort((a, b) => a.count - b.count);
+  const workouts = (workoutsByDate[summaryDate] ?? [])
+    .slice()
+    .sort((a, b) => a.count - b.count);
+  const consumed = sumCalories(meals);
+  const burned = sumCalories(workouts);
+  return {
+    allDates,
+    foodByDate,
+    workoutsByDate,
+    meals,
+    workouts,
+    consumed,
+    burned,
+    net: consumed - burned,
+  };
 }
 
 export function entryItemLabel(type: "food" | "workout", entry: Entry): string {
