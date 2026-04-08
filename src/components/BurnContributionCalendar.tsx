@@ -137,7 +137,7 @@ function ContributionBand({
         {monthHeaderSegments.map((seg) => (
           <div
             key={`mh-${startWeek}-${seg.startCol}-${seg.label}`}
-            className="flex min-h-4 min-w-0 items-start justify-start overflow-hidden whitespace-nowrap text-[12px] leading-none text-slate-500"
+            className="flex min-h-4 min-w-0 select-none items-start justify-start overflow-hidden whitespace-nowrap text-[12px] leading-none text-slate-500"
             style={{ gridColumn: `${seg.startCol} / span ${seg.span}` }}
             title={seg.label}
           >
@@ -148,7 +148,7 @@ function ContributionBand({
 
       <div className="flex min-w-0 gap-1">
         <div
-          className="grid w-7 shrink-0 grid-rows-7 gap-1 text-[8px] leading-none text-slate-500"
+          className="grid w-7 shrink-0 select-none grid-rows-7 gap-1 text-[8px] leading-none text-slate-500"
           aria-hidden="true"
         >
           {(["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"] as const).map((d) => (
