@@ -12,11 +12,15 @@ import {
   parseTrackerBackupFile,
 } from "../lib/calorieTrackerBackup";
 import {
+  contributionColorForNetVsBmr,
   entryItemLabel,
   formatDateForDisplay,
   getDailyTrackerDerivations,
   getInitialTrackerState,
   getLocalTodayIso,
+  loadBmr,
+  netCaloriesForDate,
+  saveBmr,
   trackerReducer,
   type Entry,
   type EntryStream,
@@ -27,7 +31,7 @@ import {
 } from "../lib/calorieTrackerValidators";
 import BurnContributionCalendar from "./BurnContributionCalendar";
 import TrackerDialog from "./TrackerDialog";
-import { SvgGitHubMark, SvgSaveDisk, SvgSquarePen, SvgTrash } from "../svgs";
+import { SvgGitHubMark, SvgHamburger, SvgSquarePen, SvgTrash } from "../svgs";
 
 const STREAM_ORDER: EntryStream[] = ["food", "workout"];
 
@@ -93,12 +97,15 @@ export default function CalorieTrackerApp() {
   );
   const { foodEntries, workoutEntries } = state;
 
-  const [calorieInputs, setCalorieInputs] = useState<Record<EntryStream, string>>(
-    { food: "", workout: "" },
-  );
+  const [calorieInputs, setCalorieInputs] = useState<
+    Record<EntryStream, string>
+  >({ food: "", workout: "" });
   const [statusMessage, setStatusMessage] = useState("");
   const [statusIsError, setStatusIsError] = useState(false);
   const [backupMenuOpen, setBackupMenuOpen] = useState(false);
+  const [bmr, setBmr] = useState(() => loadBmr());
+  const [bmrDialogOpen, setBmrDialogOpen] = useState(false);
+  const [bmrInput, setBmrInput] = useState(() => String(loadBmr()));
   const [selectedSummaryDate, setSelectedSummaryDate] = useState(() =>
     getLocalTodayIso(),
   );
@@ -124,7 +131,10 @@ export default function CalorieTrackerApp() {
     setStatusIsError(isError);
   }
 
-  function onLogSubmit(stream: EntryStream, e: React.FormEvent<HTMLFormElement>) {
+  function onLogSubmit(
+    stream: EntryStream,
+    e: React.FormEvent<HTMLFormElement>,
+  ) {
     e.preventDefault();
     const ui = STREAM_UI[stream];
     const date = selectedSummaryDate;
@@ -275,15 +285,45 @@ export default function CalorieTrackerApp() {
     [foodByDate, workoutsByDate],
   );
 
+  const getActivityDayColor = useCallback(
+    (iso: string) =>
+      contributionColorForNetVsBmr(
+        netCaloriesForDate(foodByDate, workoutsByDate, iso),
+        bmr,
+      ),
+    [foodByDate, workoutsByDate, bmr],
+  );
+
+  function openBmrDialog() {
+    setBmrInput(String(bmr));
+    setBmrDialogOpen(true);
+    setBackupMenuOpen(false);
+  }
+
+  function closeBmrDialog() {
+    setBmrDialogOpen(false);
+  }
+
+  function confirmBmr() {
+    const n = Number(bmrInput);
+    if (!Number.isFinite(n) || n < 500 || n > 20000) {
+      setStatus("Enter a daily BMR between 500 and 20,000 kcal.", true);
+      return;
+    }
+    const rounded = Math.round(n);
+    setBmr(rounded);
+    saveBmr(rounded);
+    setStatus("BMR saved.");
+    closeBmrDialog();
+  }
+
   const summaryDate = selectedSummaryDate;
 
-  const listByStream: Record<
-    EntryStream,
-    { entries: Entry[]; total: number }
-  > = {
-    food: { entries: meals, total: consumed },
-    workout: { entries: workouts, total: burned },
-  };
+  const listByStream: Record<EntryStream, { entries: Entry[]; total: number }> =
+    {
+      food: { entries: meals, total: consumed },
+      workout: { entries: workouts, total: burned },
+    };
 
   const editTitle = editTarget
     ? `Edit ${STREAM_UI[editTarget.stream].singular} calories`
@@ -299,6 +339,35 @@ export default function CalorieTrackerApp() {
 
   return (
     <>
+      <TrackerDialog
+        open={bmrDialogOpen}
+        onClose={closeBmrDialog}
+        title="Daily BMR (kcal)"
+        description="Basal metabolic rate used for calendar colors (net intake vs this value). Stored in this browser only."
+        primaryLabel="Save"
+        onPrimary={confirmBmr}
+      >
+        <label className="block text-sm">
+          <span className="mb-1 block font-medium text-slate-800">BMR</span>
+          <input
+            type="number"
+            min={500}
+            max={20000}
+            step={1}
+            autoFocus
+            className="w-full rounded-md border border-slate-300 px-3 py-2"
+            value={bmrInput}
+            onChange={(ev) => setBmrInput(ev.target.value)}
+            onKeyDown={(ev) => {
+              if (ev.key === "Enter") {
+                ev.preventDefault();
+                confirmBmr();
+              }
+            }}
+          />
+        </label>
+      </TrackerDialog>
+
       <TrackerDialog
         open={!!editTarget}
         onClose={closeEditDialog}
@@ -369,10 +438,12 @@ export default function CalorieTrackerApp() {
               aria-haspopup="true"
               aria-controls="backup-restore-menu"
               onClick={() => setBackupMenuOpen((o) => !o)}
-              title="Backup and restore"
+              title="Menu"
             >
-              <span className="sr-only">Open backup and restore menu</span>
-              <SvgSaveDisk className="size-6 shrink-0" aria-hidden="true" />
+              <span className="sr-only">
+                Open menu (backup, restore, BMR settings)
+              </span>
+              <SvgHamburger className="size-6 shrink-0" aria-hidden="true" />
             </button>
 
             {backupMenuOpen ? (
@@ -387,9 +458,16 @@ export default function CalorieTrackerApp() {
                   id={backupMenuHeadingId}
                   className="mb-3 text-lg font-semibold"
                 >
-                  Backup / Restore
+                  Menu
                 </h2>
                 <div className="flex flex-col gap-3">
+                  <button
+                    type="button"
+                    className="w-full rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50"
+                    onClick={openBmrDialog}
+                  >
+                    Set daily BMR ({bmr} kcal)
+                  </button>
                   <button
                     id="download-backup"
                     type="button"
@@ -444,6 +522,7 @@ export default function CalorieTrackerApp() {
               selectedDate={selectedSummaryDate}
               onSelectDate={setSelectedSummaryDate}
               dayHasActivity={dayHasActivity}
+              getActivityDayColor={getActivityDayColor}
             />
           </div>
           {STREAM_ORDER.map((stream) => {
@@ -479,10 +558,7 @@ export default function CalorieTrackerApp() {
                       }
                     />
                   </label>
-                  <button
-                    type="submit"
-                    className={ui.submitButtonClass}
-                  >
+                  <button type="submit" className={ui.submitButtonClass}>
                     {ui.submitLabel}
                   </button>
                 </form>
@@ -525,7 +601,9 @@ export default function CalorieTrackerApp() {
                                     title="Edit"
                                     aria-label={`Edit ${ui.singular} ${entry.count}`}
                                     className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
-                                    onClick={() => openEditDialog(stream, entry)}
+                                    onClick={() =>
+                                      openEditDialog(stream, entry)
+                                    }
                                   >
                                     <SvgSquarePen
                                       className="size-4"

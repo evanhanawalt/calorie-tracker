@@ -1,10 +1,15 @@
 import {
   buildContributionCells,
+  contributionFiveCellRowWidthCss,
+  contributionWeekColumnWidthCss,
   monthKeyForIso,
   parseIsoLocal,
   type ContributionCell,
 } from "../lib/calendarGrid";
-import { formatDateForDisplay } from "../lib/calorieTrackerStorage";
+import {
+  CONTRIBUTION_LEGEND_BANDS,
+  formatDateForDisplay,
+} from "../lib/calorieTrackerStorage";
 
 type Props = {
   todayIso: string;
@@ -13,6 +18,8 @@ type Props = {
   onSelectDate: (iso: string) => void;
   /** True when there was any logged activity on that calendar day (e.g. meal or workout). */
   dayHasActivity: (iso: string) => boolean;
+  /** Background for days with activity (net vs BMR palette). Only called when `dayHasActivity(iso)`. */
+  getActivityDayColor: (iso: string) => string;
 };
 
 function monthLabelForIso(iso: string): string {
@@ -92,6 +99,7 @@ type BandProps = {
   selectedDate: string;
   onSelectDate: (iso: string) => void;
   dayHasActivity: (iso: string) => boolean;
+  getActivityDayColor: (iso: string) => string;
 };
 
 function ContributionBand({
@@ -103,6 +111,7 @@ function ContributionBand({
   selectedDate,
   onSelectDate,
   dayHasActivity,
+  getActivityDayColor,
 }: BandProps) {
   const bandCells = allCells.slice(startWeek * 7, (startWeek + weekCount) * 7);
   const monthHeaderSegments = monthHeaderSegmentsForWeekRange(
@@ -114,7 +123,7 @@ function ContributionBand({
 
   return (
     <div
-      className="flex min-w-0 flex-col gap-1 [--activity-on:var(--color-blue-400)] [--activity-off:var(--color-slate-200)]"
+      className="flex min-w-0 flex-col gap-1 [--activity-off:var(--color-slate-200)]"
       role="presentation"
     >
       <div
@@ -189,12 +198,58 @@ function ContributionBand({
                   backgroundColor: cell.isFuture
                     ? "var(--activity-off)"
                     : hasActivity
-                      ? "var(--activity-on)"
+                      ? getActivityDayColor(cell.iso)
                       : "var(--activity-off)",
+                  ...(hasActivity ? { opacity: 0.6 } : {}),
                 }}
               />
             );
           })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ContributionCalendarLegend({
+  weekColumnCount,
+}: {
+  weekColumnCount: number;
+}) {
+  const cellW = contributionWeekColumnWidthCss(weekColumnCount);
+  const bmrStripW = contributionFiveCellRowWidthCss(weekColumnCount);
+
+  return (
+    <div
+      className="flex flex-col border-t ml-6 p-2 border-slate-200 pt-3 [--activity-off:var(--color-slate-200)]"
+      role="region"
+      aria-label="Calendar color legend: net calories versus BMR, and disabled days"
+    >
+      <div className="w-full flex gap-1 items-center">
+        <div className="w-full flex gap-1 items-center">
+          {CONTRIBUTION_LEGEND_BANDS.map((band) => (
+            <div
+              key={band.color}
+              title={band.label}
+              className="box-border min-h-[14px] shrink-0 rounded-xs border border-slate-300/90"
+              style={{
+                width: cellW,
+                minHeight: "14px",
+                backgroundColor: band.color,
+                opacity: 0.6,
+              }}
+            />
+          ))}
+        </div>
+        
+      </div>
+      <div className="w-full flex gap-1 justify-between">
+        <div
+          className="flex justify-between gap-2 text-[10px] text-slate-600 sm:text-xs"
+          style={{ width: bmrStripW }}
+        >
+          <span>Below BMR</span>
+          <span>Above BMR</span>
         </div>
       </div>
     </div>
@@ -207,6 +262,7 @@ export default function BurnContributionCalendar({
   selectedDate,
   onSelectDate,
   dayHasActivity,
+  getActivityDayColor,
 }: Props) {
   const cells = buildContributionCells(todayIso, weeks);
   const numWeeks = weeks;
@@ -215,6 +271,8 @@ export default function BurnContributionCalendar({
 
   const totalBands =
     (weeksFirstBand > 0 ? 1 : 0) + (weeksSecondBand > 0 ? 1 : 0);
+
+  const weekColumnCount = Math.max(weeksFirstBand, weeksSecondBand);
 
   return (
     <div className="space-y-3">
@@ -229,6 +287,7 @@ export default function BurnContributionCalendar({
             selectedDate={selectedDate}
             onSelectDate={onSelectDate}
             dayHasActivity={dayHasActivity}
+            getActivityDayColor={getActivityDayColor}
           />
         ) : null}
 
@@ -242,9 +301,11 @@ export default function BurnContributionCalendar({
             selectedDate={selectedDate}
             onSelectDate={onSelectDate}
             dayHasActivity={dayHasActivity}
+            getActivityDayColor={getActivityDayColor}
           />
         ) : null}
       </div>
+      <ContributionCalendarLegend weekColumnCount={weekColumnCount} />
     </div>
   );
 }

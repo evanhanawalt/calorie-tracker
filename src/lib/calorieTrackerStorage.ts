@@ -1,5 +1,9 @@
 export const FOOD_STORAGE_KEY = "calorie_tracker_food_entries";
 export const WORKOUT_STORAGE_KEY = "calorie_tracker_workout_entries";
+export const BMR_STORAGE_KEY = "calorie_tracker_bmr";
+
+/** Default basal metabolic rate (kcal/day); overridden via menu → localStorage. */
+export const DEFAULT_BMR = 2000;
 
 export type Entry = { date: string; calories: number; count: number };
 
@@ -59,6 +63,58 @@ export function saveEntries(food: Entry[], workouts: Entry[]): void {
   localStorage.setItem(WORKOUT_STORAGE_KEY, JSON.stringify(workouts));
 }
 
+export function loadBmr(): number {
+  const raw = localStorage.getItem(BMR_STORAGE_KEY);
+  if (raw === null) return DEFAULT_BMR;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return DEFAULT_BMR;
+  return Math.round(n);
+}
+
+export function saveBmr(kcal: number): void {
+  const rounded = Math.round(kcal);
+  if (!Number.isFinite(rounded) || rounded <= 0) return;
+  localStorage.setItem(BMR_STORAGE_KEY, String(rounded));
+}
+
+/** Net intake for a day: meals minus workouts (same as summary “Net”). */
+export function netCaloriesForDate(
+  foodByDate: Record<string, Entry[]>,
+  workoutsByDate: Record<string, Entry[]>,
+  iso: string,
+): number {
+  const consumed = sumCalories(foodByDate[iso] ?? []);
+  const burned = sumCalories(workoutsByDate[iso] ?? []);
+  return consumed - burned;
+}
+
+/**
+ * Fill color for a day with activity, from net calories vs BMR.
+ * Bands: large surplus → red; moderate surplus; near maintenance; moderate deficit; large deficit → blue-violet.
+ */
+export function contributionColorForNetVsBmr(net: number, bmr: number): string {
+  const d = net - bmr;
+  if (d > 150) return "#FF0000";
+  if (d > 50) return "#CC0033";
+  if (d >= -50) return "#990066";
+  if (d >= -150) return "#660099";
+  return "#3300CC";
+}
+
+export type ContributionLegendBand = {
+  readonly color: string;
+  readonly label: string;
+};
+
+/** Legend order: largest deficit vs BMR → largest surplus. Matches `contributionColorForNetVsBmr`. */
+export const CONTRIBUTION_LEGEND_BANDS: readonly ContributionLegendBand[] = [
+  { color: "#3300CC", label: "Over 150 below BMR" },
+  { color: "#660099", label: "50–150 below BMR" },
+  { color: "#990066", label: "Within ±50 of BMR" },
+  { color: "#CC0033", label: "50–150 above BMR" },
+  { color: "#FF0000", label: "Over 150 above BMR" },
+] as const;
+
 export type TrackerState = {
   foodEntries: Entry[];
   workoutEntries: Entry[];
@@ -102,10 +158,7 @@ function persistStreamEntries(
   return { ...state, workoutEntries: nextForStream };
 }
 
-function entriesForStream(
-  state: TrackerState,
-  stream: EntryStream,
-): Entry[] {
+function entriesForStream(state: TrackerState, stream: EntryStream): Entry[] {
   return stream === "food" ? state.foodEntries : state.workoutEntries;
 }
 

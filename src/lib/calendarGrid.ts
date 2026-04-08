@@ -68,3 +68,22 @@ export function buildContributionCells(
 export function monthKeyForIso(iso: string): string {
   return iso.slice(0, 7);
 }
+
+/** Tailwind `gap-1` on the contribution calendar grid (keep in sync). */
+const CONTRIBUTION_GRID_GAP = "0.25rem";
+
+/**
+ * Width of one week column inside the contribution grid: equal columns with `gap-1`.
+ * Use as `width` on legend swatches so they match calendar cell width.
+ */
+export function contributionWeekColumnWidthCss(weekCount: number): string {
+  if (weekCount < 1) return "100%";
+  return `calc((100% - ${weekCount - 1} * ${CONTRIBUTION_GRID_GAP}) / ${weekCount})`;
+}
+
+/** Width of five week columns plus four `gap-1` gutters (BMR legend strip). */
+export function contributionFiveCellRowWidthCss(weekCount: number): string {
+  if (weekCount < 1) return "100%";
+  const g = CONTRIBUTION_GRID_GAP;
+  return `calc(5 * ((100% - ${weekCount - 1} * ${g}) / ${weekCount}) + 4 * ${g})`;
+}
