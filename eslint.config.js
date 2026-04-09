@@ -5,7 +5,7 @@ import reactHooks from "eslint-plugin-react-hooks";
 import tseslint from "typescript-eslint";
 
 export default defineConfig(
-  globalIgnores(["dist/**", "node_modules/**", ".astro/**"]),
+  globalIgnores(["dist/**", "node_modules/**", ".astro/**", ".vercel/**"]),
   js.configs.recommended,
   ...astro.configs.recommended,
   ...tseslint.configs.recommended.map((config) => ({
