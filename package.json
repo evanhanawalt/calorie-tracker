@@ -8,22 +8,33 @@
     "build": "npm run lint && astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
     "@astrojs/react": "^5.0.3",
     "@astrojs/vercel": "^10.0.4",
+    "@auth/core": "^0.41.2",
     "@neondatabase/serverless": "^1.0.2",
     "@tailwindcss/vite": "^4.2.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "astro": "^6.1.5",
+    "drizzle-orm": "^0.45.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "tailwindcss": "^4.2.2"
   },
+  "overrides": {
+    "path-to-regexp": "^6.3.0",
+    "@esbuild-kit/core-utils": {
+      "esbuild": "^0.25.4"
+    }
+  },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
+    "drizzle-kit": "^0.31.10",
     "eslint": "^9.39.4",
     "eslint-plugin-astro": "^1.7.0",
     "eslint-plugin-react-hooks": "^7.0.1",

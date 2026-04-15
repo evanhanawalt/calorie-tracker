@@ -35,6 +35,38 @@ import { SvgGitHubMark, SvgHamburger, SvgSquarePen, SvgTrash } from "../svgs";
 
 const STREAM_ORDER: EntryStream[] = ["food", "workout"];
 
+const AUTH_SESSION_PATH = "/api/auth/session";
+
+type AuthSessionState =
+  | { status: "loading" }
+  | { status: "signedOut" }
+  | { status: "signedIn"; name: string | null; email: string | null };
+
+async function fetchAuthSession(): Promise<
+  Exclude<AuthSessionState, { status: "loading" }>
+> {
+  try {
+    const res = await fetch(AUTH_SESSION_PATH, {
+      credentials: "same-origin",
+      headers: { Accept: "application/json" },
+    });
+    if (!res.ok) return { status: "signedOut" };
+    const data = (await res.json()) as {
+      user?: { name?: string | null; email?: string | null } | null;
+    };
+    if (data?.user && typeof data.user === "object") {
+      return {
+        status: "signedIn",
+        name: typeof data.user.name === "string" ? data.user.name : null,
+        email: typeof data.user.email === "string" ? data.user.email : null,
+      };
+    }
+    return { status: "signedOut" };
+  } catch {
+    return { status: "signedOut" };
+  }
+}
+
 type StreamUi = {
   logSectionTitle: string;
   formId: string;
@@ -103,6 +135,9 @@ export default function CalorieTrackerApp() {
   const [statusMessage, setStatusMessage] = useState("");
   const [statusIsError, setStatusIsError] = useState(false);
   const [backupMenuOpen, setBackupMenuOpen] = useState(false);
+  const [authSession, setAuthSession] = useState<AuthSessionState>({
+    status: "loading",
+  });
   const [bmr, setBmr] = useState(() => loadBmr());
   const [bmrDialogOpen, setBmrDialogOpen] = useState(false);
   const [bmrInput, setBmrInput] = useState(() => String(loadBmr()));
@@ -237,7 +272,20 @@ export default function CalorieTrackerApp() {
   }
 
   useEffect(() => {
+    void fetchAuthSession().then(setAuthSession);
+  }, []);
+
+  useEffect(() => {
+    function onFocus() {
+      void fetchAuthSession().then(setAuthSession);
+    }
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
+
+  useEffect(() => {
     if (!backupMenuOpen) return;
+    void fetchAuthSession().then(setAuthSession);
     function onPointerDown(ev: MouseEvent | TouchEvent) {
       const el = backupMenuRef.current;
       const btn = backupMenuButtonRef.current;
@@ -441,7 +489,7 @@ export default function CalorieTrackerApp() {
               title="Menu"
             >
               <span className="sr-only">
-                Open menu (backup, restore, BMR settings)
+                Open menu (account, backup, restore, BMR settings)
               </span>
               <SvgHamburger className="size-6 shrink-0" aria-hidden="true" />
             </button>
@@ -488,6 +536,46 @@ export default function CalorieTrackerApp() {
                       onChange={onUploadBackupChange}
                     />
                   </label>
+                  <div className="mt-3 border-t border-slate-200 pt-3">
+                    {authSession.status === "loading" ? (
+                      <p className="text-center text-xs text-slate-500">
+                        Checking sign-in…
+                      </p>
+                    ) : null}
+                    {authSession.status === "signedIn" ? (
+                      <div className="flex flex-col gap-2">
+                        <p
+                          className="truncate text-center text-xs text-slate-600"
+                          title={
+                            authSession.email ??
+                            authSession.name ??
+                            undefined
+                          }
+                        >
+                          Signed in
+                          {authSession.name || authSession.email
+                            ? ` as ${authSession.name ?? authSession.email}`
+                            : ""}
+                        </p>
+                        <a
+                          href="/api/auth/signout"
+                          className="block w-full rounded-md border border-slate-300 px-4 py-2 text-center text-sm font-medium text-slate-800 hover:bg-slate-50"
+                          onClick={() => setBackupMenuOpen(false)}
+                        >
+                          Sign out
+                        </a>
+                      </div>
+                    ) : null}
+                    {authSession.status === "signedOut" ? (
+                      <a
+                        href="/api/auth/signin"
+                        className="block w-full rounded-md bg-emerald-600 px-4 py-2 text-center text-sm font-medium text-white hover:bg-emerald-700"
+                        onClick={() => setBackupMenuOpen(false)}
+                      >
+                        Sign in with Google
+                      </a>
+                    ) : null}
+                  </div>
                 </div>
               </div>
             ) : null}
