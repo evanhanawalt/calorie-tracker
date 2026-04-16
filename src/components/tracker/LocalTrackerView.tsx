@@ -30,6 +30,8 @@ import {
   parseNonNegativeCalories,
 } from "../../lib/calorieTrackerValidators";
 import BurnContributionCalendar from "../BurnContributionCalendar";
+import GoogleSignInDialog from "../GoogleSignInDialog";
+import SignInWithGoogleButton from "../SignInWithGoogleButton";
 import TrackerDialog from "../TrackerDialog";
 import { SvgGitHubMark, SvgHamburger, SvgSquarePen, SvgTrash } from "../../svgs";
 import { STREAM_ORDER, STREAM_UI } from "./trackerUiConfig";
@@ -66,6 +68,7 @@ export default function LocalTrackerView() {
     stream: EntryStream;
     entry: Entry;
   }>(null);
+  const [googleSignInOpen, setGoogleSignInOpen] = useState(false);
 
   const backupMenuRef = useRef<HTMLDivElement>(null);
   const backupMenuButtonRef = useRef<HTMLButtonElement>(null);
@@ -360,6 +363,11 @@ export default function LocalTrackerView() {
         primaryDisabled={!deleteTarget}
       />
 
+      <GoogleSignInDialog
+        open={googleSignInOpen}
+        onClose={() => setGoogleSignInOpen(false)}
+      />
+
       <nav
         className="sticky top-0 z-50 border-b border-slate-200/90 bg-white shadow-sm"
         aria-label="Primary"
@@ -440,13 +448,13 @@ export default function LocalTrackerView() {
                     />
                   </label>
                   <div className="mt-3 border-t border-slate-200 pt-3">
-                    <a
-                      href="/api/auth/signin"
-                      className="block w-full rounded-md bg-emerald-600 px-4 py-2 text-center text-sm font-medium text-white hover:bg-emerald-700"
-                      onClick={() => setBackupMenuOpen(false)}
-                    >
-                      Sign in with Google
-                    </a>
+                    <SignInWithGoogleButton
+                      type="button"
+                      onClick={() => {
+                        setBackupMenuOpen(false);
+                        setGoogleSignInOpen(true);
+                      }}
+                    />
                   </div>
                 </div>
               </div>

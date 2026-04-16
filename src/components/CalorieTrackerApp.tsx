@@ -1,13 +1,23 @@
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useAuthSessionQuery } from "../hooks/trackerRemote";
+import {
+  hasSessionPreferredLocal,
+  setSessionPreferredLocal,
+} from "../lib/trackerStorageChoice";
 import { authQueryKeys } from "../lib/trackerQueryKeys";
+import GoogleSignInDialog from "./GoogleSignInDialog";
 import LocalTrackerView from "./tracker/LocalTrackerView";
 import RemoteTrackerView from "./tracker/RemoteTrackerView";
+import TrackerStorageLanding from "./TrackerStorageLanding";
 
 function CalorieTrackerBody() {
   const queryClient = useQueryClient();
   const session = useAuthSessionQuery();
+  const [mode, setMode] = useState<"landing" | "local">(() =>
+    hasSessionPreferredLocal() ? "local" : "landing",
+  );
+  const [googleDialogOpen, setGoogleDialogOpen] = useState(false);
 
   useEffect(() => {
     function onFocus() {
@@ -27,6 +37,24 @@ function CalorieTrackerBody() {
 
   if (session.data?.user) {
     return <RemoteTrackerView />;
+  }
+
+  if (mode === "landing") {
+    return (
+      <>
+        <TrackerStorageLanding
+          onChooseLocal={() => {
+            setSessionPreferredLocal();
+            setMode("local");
+          }}
+          onRequestGoogle={() => setGoogleDialogOpen(true)}
+        />
+        <GoogleSignInDialog
+          open={googleDialogOpen}
+          onClose={() => setGoogleDialogOpen(false)}
+        />
+      </>
+    );
   }
 
   return <LocalTrackerView />;
