@@ -1,8 +1,5 @@
-import {
-  sanitizeEntries,
-  type Entry,
-  type TrackerState,
-} from "./calorieTrackerStorage";
+import type { Entry, TrackerState } from "./calorieTrackerStorage";
+import { normalizeStoredTrackerEntries } from "./trackerEntryNormalize";
 
 export const DEFAULT_BACKUP_FILENAME = "calorie-tracker-backup.json";
 
@@ -38,10 +35,10 @@ export function parseTrackerBackupFile(text: string): ParsedTrackerBackup {
   const o = parsed as { foodEntries?: unknown; workoutEntries?: unknown };
   return {
     ok: true,
-    foodEntries: sanitizeEntries(
+    foodEntries: normalizeStoredTrackerEntries(
       Array.isArray(o.foodEntries) ? o.foodEntries : [],
     ),
-    workoutEntries: sanitizeEntries(
+    workoutEntries: normalizeStoredTrackerEntries(
       Array.isArray(o.workoutEntries) ? o.workoutEntries : [],
     ),
   };
