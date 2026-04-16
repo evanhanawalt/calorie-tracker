@@ -6,7 +6,6 @@ import {
   setSessionPreferredLocal,
 } from "../lib/trackerStorageChoice";
 import { authQueryKeys } from "../lib/trackerQueryKeys";
-import GoogleSignInDialog from "./GoogleSignInDialog";
 import LocalTrackerView from "./tracker/LocalTrackerView";
 import RemoteTrackerView from "./tracker/RemoteTrackerView";
 import TrackerStorageLanding from "./TrackerStorageLanding";
@@ -17,7 +16,6 @@ function CalorieTrackerBody() {
   const [mode, setMode] = useState<"landing" | "local">(() =>
     hasSessionPreferredLocal() ? "local" : "landing",
   );
-  const [googleDialogOpen, setGoogleDialogOpen] = useState(false);
 
   useEffect(() => {
     function onFocus() {
@@ -41,19 +39,12 @@ function CalorieTrackerBody() {
 
   if (mode === "landing") {
     return (
-      <>
-        <TrackerStorageLanding
-          onChooseLocal={() => {
-            setSessionPreferredLocal();
-            setMode("local");
-          }}
-          onRequestGoogle={() => setGoogleDialogOpen(true)}
-        />
-        <GoogleSignInDialog
-          open={googleDialogOpen}
-          onClose={() => setGoogleDialogOpen(false)}
-        />
-      </>
+      <TrackerStorageLanding
+        onChooseLocal={() => {
+          setSessionPreferredLocal();
+          setMode("local");
+        }}
+      />
     );
   }
 

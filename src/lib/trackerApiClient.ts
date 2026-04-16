@@ -2,6 +2,7 @@ import type { TrackerState } from "./calorieTrackerStorage";
 import type {
   CalendarDayWire,
   DailySummaryWire,
+  TrackerEntryWire,
   UserSettingsWire,
 } from "./trackerWire";
 
@@ -26,6 +27,29 @@ async function readJson<T>(res: Response): Promise<T> {
     throw new Error(msg);
   }
   return data as T;
+}
+
+function parseTrackerEntryWire(value: unknown, label: string): TrackerEntryWire {
+  if (!value || typeof value !== "object") {
+    throw new Error(`Invalid ${label} in response`);
+  }
+  const o = value as Record<string, unknown>;
+  const id = o.id;
+  const date = o.date;
+  const calories = o.calories;
+  const displayOrder = o.displayOrder;
+  if (typeof id !== "string" || typeof date !== "string") {
+    throw new Error(`Invalid ${label} in response`);
+  }
+  if (typeof calories !== "number" || typeof displayOrder !== "number") {
+    throw new Error(`Invalid ${label} in response`);
+  }
+  return {
+    id,
+    date,
+    calories: Math.round(calories),
+    displayOrder: Math.round(displayOrder),
+  };
 }
 
 export async function fetchDailySummary(date: string): Promise<DailySummaryWire> {
@@ -75,7 +99,7 @@ export async function patchUserSettings(
 export async function postMeal(body: {
   date: string;
   calories: number;
-}): Promise<void> {
+}): Promise<TrackerEntryWire> {
   const res = await fetch(`${APP}/meals`, {
     method: "POST",
     credentials: "same-origin",
@@ -85,10 +109,14 @@ export async function postMeal(body: {
     },
     body: JSON.stringify({ date: body.date, calories: body.calories }),
   });
-  await readJson<{ meal: unknown }>(res);
+  const data = await readJson<{ meal: unknown }>(res);
+  return parseTrackerEntryWire(data.meal, "meal");
 }
 
-export async function patchMeal(id: string, calories: number): Promise<void> {
+export async function patchMeal(
+  id: string,
+  calories: number,
+): Promise<TrackerEntryWire> {
   const res = await fetch(`${APP}/meals/${encodeURIComponent(id)}`, {
     method: "PATCH",
     credentials: "same-origin",
@@ -98,7 +126,8 @@ export async function patchMeal(id: string, calories: number): Promise<void> {
     },
     body: JSON.stringify({ calories }),
   });
-  await readJson<{ meal: unknown }>(res);
+  const data = await readJson<{ meal: unknown }>(res);
+  return parseTrackerEntryWire(data.meal, "meal");
 }
 
 export async function deleteMealApi(id: string): Promise<void> {
@@ -113,7 +142,7 @@ export async function deleteMealApi(id: string): Promise<void> {
 export async function postWorkout(body: {
   date: string;
   calories: number;
-}): Promise<void> {
+}): Promise<TrackerEntryWire> {
   const res = await fetch(`${APP}/workouts`, {
     method: "POST",
     credentials: "same-origin",
@@ -123,13 +152,14 @@ export async function postWorkout(body: {
     },
     body: JSON.stringify({ date: body.date, calories: body.calories }),
   });
-  await readJson<{ workout: unknown }>(res);
+  const data = await readJson<{ workout: unknown }>(res);
+  return parseTrackerEntryWire(data.workout, "workout");
 }
 
 export async function patchWorkout(
   id: string,
   calories: number,
-): Promise<void> {
+): Promise<TrackerEntryWire> {
   const res = await fetch(`${APP}/workouts/${encodeURIComponent(id)}`, {
     method: "PATCH",
     credentials: "same-origin",
@@ -139,7 +169,8 @@ export async function patchWorkout(
     },
     body: JSON.stringify({ calories }),
   });
-  await readJson<{ workout: unknown }>(res);
+  const data = await readJson<{ workout: unknown }>(res);
+  return parseTrackerEntryWire(data.workout, "workout");
 }
 
 export async function deleteWorkoutApi(id: string): Promise<void> {

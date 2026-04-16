@@ -6,6 +6,7 @@ import {
   patchUserSettings,
 } from "../lib/trackerApiClient";
 import { runTrackerApiAction } from "../lib/trackerApiReducer";
+import { applyTrackerMutationResultToCaches } from "../lib/trackerQueryCacheUpdaters";
 import {
   authQueryKeys,
   settingsQueryKeys,
@@ -72,8 +73,12 @@ export function useTrackerApiMutation() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: runTrackerApiAction,
-    onSettled: async () => {
-      await queryClient.invalidateQueries({ queryKey: trackerQueryKeys.root });
+    onSuccess: (result) => {
+      if (result.kind === "restore") {
+        void queryClient.invalidateQueries({ queryKey: trackerQueryKeys.root });
+        return;
+      }
+      applyTrackerMutationResultToCaches(queryClient, result);
     },
   });
 }

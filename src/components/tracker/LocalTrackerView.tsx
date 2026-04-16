@@ -29,8 +29,8 @@ import {
   isLogDateAllowed,
   parseNonNegativeCalories,
 } from "../../lib/calorieTrackerValidators";
+import { startGoogleSignIn } from "../../lib/googleSignInClient";
 import BurnContributionCalendar from "../BurnContributionCalendar";
-import GoogleSignInDialog from "../GoogleSignInDialog";
 import SignInWithGoogleButton from "../SignInWithGoogleButton";
 import TrackerDialog from "../TrackerDialog";
 import { SvgGitHubMark, SvgHamburger, SvgSquarePen, SvgTrash } from "../../svgs";
@@ -68,8 +68,6 @@ export default function LocalTrackerView() {
     stream: EntryStream;
     entry: Entry;
   }>(null);
-  const [googleSignInOpen, setGoogleSignInOpen] = useState(false);
-
   const backupMenuRef = useRef<HTMLDivElement>(null);
   const backupMenuButtonRef = useRef<HTMLButtonElement>(null);
   const backupMenuHeadingId = useId();
@@ -363,11 +361,6 @@ export default function LocalTrackerView() {
         primaryDisabled={!deleteTarget}
       />
 
-      <GoogleSignInDialog
-        open={googleSignInOpen}
-        onClose={() => setGoogleSignInOpen(false)}
-      />
-
       <nav
         className="sticky top-0 z-50 border-b border-slate-200/90 bg-white shadow-sm"
         aria-label="Primary"
@@ -452,7 +445,16 @@ export default function LocalTrackerView() {
                       type="button"
                       onClick={() => {
                         setBackupMenuOpen(false);
-                        setGoogleSignInOpen(true);
+                        void (async () => {
+                          try {
+                            await startGoogleSignIn();
+                          } catch {
+                            setStatus(
+                              "Could not start sign-in. Check your connection and try again.",
+                              true,
+                            );
+                          }
+                        })();
                       }}
                     />
                   </div>

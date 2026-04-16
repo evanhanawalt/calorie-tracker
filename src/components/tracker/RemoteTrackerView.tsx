@@ -27,6 +27,7 @@ import {
   isLogDateAllowed,
   parseNonNegativeCalories,
 } from "../../lib/calorieTrackerValidators";
+import { startAuthSignOut } from "../../lib/authSignOutClient";
 import { fetchTrackerBackupExport } from "../../lib/trackerApiClient";
 import {
   authQueryKeys,
@@ -75,7 +76,6 @@ export default function RemoteTrackerView() {
     stream: EntryStream;
     entry: Entry;
   }>(null);
-
   const backupMenuRef = useRef<HTMLDivElement>(null);
   const backupMenuButtonRef = useRef<HTMLButtonElement>(null);
   const backupMenuHeadingId = useId();
@@ -544,9 +544,9 @@ export default function RemoteTrackerView() {
                           ? ` as ${authSession.data?.user?.name ?? authSession.data?.user?.email}`
                           : ""}
                       </p>
-                      <a
-                        href="/api/auth/signout"
-                        className="block w-full rounded-md border border-slate-300 px-4 py-2 text-center text-sm font-medium text-slate-800 hover:bg-slate-50"
+                      <button
+                        type="button"
+                        className="w-full rounded-md border border-slate-300 px-4 py-2 text-center text-sm font-medium text-slate-800 hover:bg-slate-50"
                         onClick={() => {
                           setBackupMenuOpen(false);
                           void queryClient.invalidateQueries({
@@ -558,10 +558,20 @@ export default function RemoteTrackerView() {
                           void queryClient.invalidateQueries({
                             queryKey: settingsQueryKeys.root,
                           });
+                          void (async () => {
+                            try {
+                              await startAuthSignOut();
+                            } catch {
+                              setStatus(
+                                "Could not sign out. Check your connection and try again.",
+                                true,
+                              );
+                            }
+                          })();
                         }}
                       >
                         Sign out
-                      </a>
+                      </button>
                     </div>
                   </div>
                 </div>
