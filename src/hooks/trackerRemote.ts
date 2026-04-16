@@ -74,10 +74,6 @@ export function useTrackerApiMutation() {
   return useMutation({
     mutationFn: runTrackerApiAction,
     onSuccess: (result) => {
-      if (result.kind === "restore") {
-        void queryClient.invalidateQueries({ queryKey: trackerQueryKeys.root });
-        return;
-      }
       applyTrackerMutationResultToCaches(queryClient, result);
     },
   });

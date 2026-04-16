@@ -5,7 +5,6 @@ const trackerRoot = ["tracker"] as const;
 const trackerKeySeg = {
   summary: "summary",
   calendar: "calendar",
-  backup: "backup",
 } as const;
 
 export const trackerQueryKeys = {
@@ -14,7 +13,6 @@ export const trackerQueryKeys = {
     [...trackerRoot, trackerKeySeg.summary, date] as const,
   calendar: (start: string, end: string) =>
     [...trackerRoot, trackerKeySeg.calendar, start, end] as const,
-  backup: [...trackerRoot, trackerKeySeg.backup] as const,
 };
 
 /** Date segment for a key built with `trackerQueryKeys.summary`, if any. */

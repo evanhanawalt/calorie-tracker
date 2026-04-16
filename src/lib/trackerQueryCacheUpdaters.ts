@@ -149,13 +149,11 @@ function applyDeleteEntry(
 
 /**
  * Keeps summary + calendar query caches aligned after a tracker API mutation.
- * Call only for `mutateEntry` / `deleteEntry`; `restore` should use invalidation instead.
  */
 export function applyTrackerMutationResultToCaches(
   queryClient: QueryClient,
   result: TrackerApiActionResult,
 ): void {
-  if (result.kind === "restore") return;
   if (result.kind === "deleteEntry") {
     applyDeleteEntry(queryClient, result.stream, result.id);
     return;

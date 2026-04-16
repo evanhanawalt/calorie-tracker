@@ -6,7 +6,7 @@ export type TrackerEntryWire = {
   displayOrder: number;
 };
 
-/** Keys for persisted tracker entries (localStorage and JSON backups). */
+/** Keys for persisted tracker entries (localStorage). */
 export const TRACKER_ENTRY_WIRE_KEYS = [
   "id",
   "date",

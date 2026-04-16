@@ -1,4 +1,3 @@
-import type { TrackerState } from "./calorieTrackerStorage";
 import type {
   CalendarDayWire,
   DailySummaryWire,
@@ -180,30 +179,4 @@ export async function deleteWorkoutApi(id: string): Promise<void> {
     headers: { Accept: "application/json" },
   });
   await readJson<{ ok: boolean }>(res);
-}
-
-export async function postTrackerRestore(
-  state: TrackerState,
-): Promise<void> {
-  const res = await fetch(`${APP}/tracker/restore`, {
-    method: "POST",
-    credentials: "same-origin",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      foodEntries: state.foodEntries,
-      workoutEntries: state.workoutEntries,
-    }),
-  });
-  await readJson<{ ok: boolean }>(res);
-}
-
-export async function fetchTrackerBackupExport(): Promise<TrackerState> {
-  const res = await fetch(`${APP}/tracker/backup`, {
-    credentials: "same-origin",
-    headers: { Accept: "application/json" },
-  });
-  return readJson<TrackerState>(res);
 }

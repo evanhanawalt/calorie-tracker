@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   useCallback,
   useEffect,
@@ -7,10 +7,6 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  downloadTrackerBackup,
-  parseTrackerBackupFile,
-} from "../../lib/calorieTrackerBackup";
 import { contributionCalendarDateBounds } from "../../lib/calendarGrid";
 import {
   contributionColorForNetVsBmr,
@@ -28,7 +24,6 @@ import {
   parseNonNegativeCalories,
 } from "../../lib/calorieTrackerValidators";
 import { startAuthSignOut } from "../../lib/authSignOutClient";
-import { fetchTrackerBackupExport } from "../../lib/trackerApiClient";
 import {
   authQueryKeys,
   settingsQueryKeys,
@@ -64,7 +59,7 @@ export default function RemoteTrackerView() {
   >({ food: "", workout: "" });
   const [statusMessage, setStatusMessage] = useState("");
   const [statusIsError, setStatusIsError] = useState(false);
-  const [backupMenuOpen, setBackupMenuOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [bmrDialogOpen, setBmrDialogOpen] = useState(false);
   const [bmrInput, setBmrInput] = useState("");
   const [editTarget, setEditTarget] = useState<null | {
@@ -76,18 +71,15 @@ export default function RemoteTrackerView() {
     stream: EntryStream;
     entry: Entry;
   }>(null);
-  const backupMenuRef = useRef<HTMLDivElement>(null);
-  const backupMenuButtonRef = useRef<HTMLButtonElement>(null);
-  const backupMenuHeadingId = useId();
+  const menuRef = useRef<HTMLDivElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const menuHeadingId = useId();
 
   const summaryQuery = useDailySummaryQuery(selectedSummaryDate, true);
   const settingsQuery = useUserSettingsQuery(true);
   const calendarQuery = useCalendarDaysQuery(calendarStart, calendarEnd, true);
   const trackerMut = useTrackerApiMutation();
   const patchSettings = usePatchUserSettingsMutation();
-  const backupExportMut = useMutation({
-    mutationFn: fetchTrackerBackupExport,
-  });
 
   const bmr = settingsQuery.data?.bmrKcal ?? DEFAULT_BMR;
 
@@ -171,48 +163,6 @@ export default function RemoteTrackerView() {
     })();
   }
 
-  async function onDownloadBackup() {
-    try {
-      const state = await backupExportMut.mutateAsync();
-      const { saved } = await downloadTrackerBackup(state);
-      if (saved) setStatus("Backup saved.");
-    } catch (err) {
-      setStatus(
-        err instanceof Error ? err.message : "Could not download backup.",
-        true,
-      );
-    }
-  }
-
-  async function onUploadBackupChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      const text = await file.text();
-      const parsed = parseTrackerBackupFile(text);
-      if (!parsed.ok) {
-        setStatus(
-          "Could not restore backup. Make sure the file is valid JSON.",
-          true,
-        );
-        e.target.value = "";
-        return;
-      }
-      await runTracker({
-        type: "restore",
-        foodEntries: parsed.foodEntries,
-        workoutEntries: parsed.workoutEntries,
-      });
-      setStatus("Backup restored successfully.");
-    } catch (err) {
-      setStatus(
-        err instanceof Error ? err.message : "Could not restore backup.",
-        true,
-      );
-    }
-    e.target.value = "";
-  }
-
   function openEditDialog(stream: EntryStream, entry: Entry) {
     setEditTarget({ stream, entry });
     setEditCaloriesInput(String(entry.calories));
@@ -286,18 +236,18 @@ export default function RemoteTrackerView() {
   }, [queryClient]);
 
   useEffect(() => {
-    if (!backupMenuOpen) return;
+    if (!menuOpen) return;
     void queryClient.invalidateQueries({ queryKey: authQueryKeys.session });
     function onPointerDown(ev: MouseEvent | TouchEvent) {
-      const el = backupMenuRef.current;
-      const btn = backupMenuButtonRef.current;
+      const el = menuRef.current;
+      const btn = menuButtonRef.current;
       if (!el || !btn) return;
       const target = ev.target as Node;
       if (el.contains(target) || btn.contains(target)) return;
-      setBackupMenuOpen(false);
+      setMenuOpen(false);
     }
     function onKeyDown(ev: KeyboardEvent) {
-      if (ev.key === "Escape") setBackupMenuOpen(false);
+      if (ev.key === "Escape") setMenuOpen(false);
     }
     document.addEventListener("mousedown", onPointerDown);
     document.addEventListener("touchstart", onPointerDown, { passive: true });
@@ -307,12 +257,12 @@ export default function RemoteTrackerView() {
       document.removeEventListener("touchstart", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [backupMenuOpen, queryClient]);
+  }, [menuOpen, queryClient]);
 
   function openBmrDialog() {
     setBmrInput(String(settingsQuery.data?.bmrKcal ?? DEFAULT_BMR));
     setBmrDialogOpen(true);
-    setBackupMenuOpen(false);
+    setMenuOpen(false);
   }
 
   function closeBmrDialog() {
@@ -468,31 +418,31 @@ export default function RemoteTrackerView() {
           </div>
           <div className="relative flex shrink-0 justify-end">
             <button
-              ref={backupMenuButtonRef}
+              ref={menuButtonRef}
               type="button"
-              className={`rounded-md p-2 text-slate-700 outline-none ring-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:ring-2 ${backupMenuOpen ? "bg-slate-100" : ""}`}
-              aria-expanded={backupMenuOpen}
+              className={`rounded-md p-2 text-slate-700 outline-none ring-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:ring-2 ${menuOpen ? "bg-slate-100" : ""}`}
+              aria-expanded={menuOpen}
               aria-haspopup="true"
-              aria-controls="backup-restore-menu-remote"
-              onClick={() => setBackupMenuOpen((o) => !o)}
+              aria-controls="app-menu-remote"
+              onClick={() => setMenuOpen((o) => !o)}
               title="Menu"
             >
               <span className="sr-only">
-                Open menu (account, backup, restore, BMR settings)
+                Open menu (account, BMR settings)
               </span>
               <SvgHamburger className="size-6 shrink-0" aria-hidden="true" />
             </button>
 
-            {backupMenuOpen ? (
+            {menuOpen ? (
               <div
-                ref={backupMenuRef}
-                id="backup-restore-menu-remote"
+                ref={menuRef}
+                id="app-menu-remote"
                 role="region"
-                aria-labelledby={backupMenuHeadingId}
+                aria-labelledby={menuHeadingId}
                 className="absolute right-0 top-full z-50 mt-2 min-w-[16rem] rounded-lg border border-slate-200 bg-white p-4 shadow-lg"
               >
                 <h2
-                  id={backupMenuHeadingId}
+                  id={menuHeadingId}
                   className="mb-3 text-lg font-semibold"
                 >
                   Menu
@@ -505,24 +455,6 @@ export default function RemoteTrackerView() {
                   >
                     Set daily BMR ({bmr} kcal)
                   </button>
-                  <button
-                    type="button"
-                    className="w-full rounded-md bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-900"
-                    onClick={() => {
-                      void onDownloadBackup();
-                    }}
-                  >
-                    Download JSON Backup
-                  </button>
-                  <label className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50">
-                    <span>Upload JSON Backup</span>
-                    <input
-                      type="file"
-                      accept="application/json"
-                      className="hidden"
-                      onChange={onUploadBackupChange}
-                    />
-                  </label>
                   <div className="mt-3 border-t border-slate-200 pt-3">
                     {authSession.isPending ? (
                       <p className="text-center text-xs text-slate-500">
@@ -548,7 +480,7 @@ export default function RemoteTrackerView() {
                         type="button"
                         className="w-full rounded-md border border-slate-300 px-4 py-2 text-center text-sm font-medium text-slate-800 hover:bg-slate-50"
                         onClick={() => {
-                          setBackupMenuOpen(false);
+                          setMenuOpen(false);
                           void queryClient.invalidateQueries({
                             queryKey: authQueryKeys.session,
                           });
@@ -597,6 +529,7 @@ export default function RemoteTrackerView() {
             : derivedSummaryError ||
               statusMessage ||
               (calendarQuery.isPending ? "Loading calendar…" : "")}
+          &nbsp;
         </p>
 
         <section className="grid gap-4 rounded-xl bg-white p-4 shadow-sm md:grid-cols-2">

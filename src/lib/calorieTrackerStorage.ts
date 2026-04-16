@@ -115,11 +115,6 @@ export function getInitialTrackerState(): TrackerState {
 }
 
 export type TrackerAction =
-  | {
-      type: "restore";
-      foodEntries: Entry[];
-      workoutEntries: Entry[];
-    }
   | { type: "addEntry"; stream: EntryStream; date: string; calories: number }
   | {
       type: "updateEntryCalories";
@@ -154,11 +149,6 @@ export function trackerReducer(
   action: TrackerAction,
 ): TrackerState {
   switch (action.type) {
-    case "restore": {
-      const { foodEntries, workoutEntries } = action;
-      saveEntries(foodEntries, workoutEntries);
-      return { foodEntries, workoutEntries };
-    }
     case "addEntry": {
       const list = entriesForStream(state, action.stream);
       const nextDisplayOrder = getNextDisplayOrder(list, action.date);

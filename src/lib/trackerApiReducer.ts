@@ -5,13 +5,11 @@ import {
   patchMeal,
   patchWorkout,
   postMeal,
-  postTrackerRestore,
   postWorkout,
 } from "./trackerApiClient";
 import type { TrackerEntryWire } from "./trackerWire";
 
 export type TrackerApiActionResult =
-  | { kind: "restore" }
   | {
       kind: "mutateEntry";
       stream: EntryStream;
@@ -28,12 +26,6 @@ export async function runTrackerApiAction(
   action: TrackerAction,
 ): Promise<TrackerApiActionResult> {
   switch (action.type) {
-    case "restore":
-      await postTrackerRestore({
-        foodEntries: action.foodEntries,
-        workoutEntries: action.workoutEntries,
-      });
-      return { kind: "restore" };
     case "addEntry": {
       if (action.stream === "food") {
         const entry = await postMeal({
