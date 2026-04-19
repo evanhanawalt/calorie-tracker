@@ -6,6 +6,7 @@ tsconfig.tsbuildinfo
 
 
 # generated types
+next-env.d.ts
 .astro/
 
 # dependencies
