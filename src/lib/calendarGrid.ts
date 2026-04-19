@@ -51,13 +51,22 @@ export type ContributionCell = {
   isFuture: boolean;
 };
 
+/** Week columns in the default contribution-style calendar (GitHub-like grid). */
+export const CONTRIBUTION_CALENDAR_DEFAULT_WEEKS = 52;
+
+/**
+ * Inclusive local day count covered by that grid (one cell per consecutive day).
+ */
+export const CONTRIBUTION_CALENDAR_DEFAULT_INCLUSIVE_DAYS =
+  CONTRIBUTION_CALENDAR_DEFAULT_WEEKS * 7;
+
 /**
  * Flat list in column-major order (each week: Sun→Sat) for CSS
  * `grid-template-rows: repeat(7, …); grid-auto-flow: column`.
  */
 export function buildContributionCells(
   todayIso: string,
-  numWeeks = 53,
+  numWeeks = CONTRIBUTION_CALENDAR_DEFAULT_WEEKS,
 ): ContributionCell[] {
   const today = parseIsoLocal(todayIso);
   if (Number.isNaN(today.getTime())) {
@@ -87,7 +96,7 @@ export function buildContributionCells(
 /** First and last yyyy-mm-dd in the contribution grid (inclusive). */
 export function contributionCalendarDateBounds(
   todayIso: string,
-  numWeeks = 53,
+  numWeeks = CONTRIBUTION_CALENDAR_DEFAULT_WEEKS,
 ): { start: string; end: string } {
   const cells = buildContributionCells(todayIso, numWeeks);
   if (!cells.length) {

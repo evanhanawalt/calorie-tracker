@@ -1,8 +1,14 @@
-import { listIsoDatesInclusive, parseIsoLocal, toIsoLocal } from "@/lib/calendarGrid";
+import {
+  CONTRIBUTION_CALENDAR_DEFAULT_INCLUSIVE_DAYS,
+  listIsoDatesInclusive,
+  parseIsoLocal,
+  toIsoLocal,
+} from "@/lib/calendarGrid";
 import { z } from "zod";
 
-/** Max inclusive day span for `start`/`end` calendar queries (leap-year length). */
-export const ISO_DATE_RANGE_MAX_INCLUSIVE_DAYS = 366;
+/** Max inclusive day span for `start`/`end` calendar queries (matches default contribution grid). */
+export const ISO_DATE_RANGE_MAX_INCLUSIVE_DAYS =
+  CONTRIBUTION_CALENDAR_DEFAULT_INCLUSIVE_DAYS;
 
 /** yyyy-mm-dd (lexicographic compare matches calendar order). */
 export const isoDateStringSchema = z
