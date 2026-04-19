@@ -41,7 +41,7 @@ export async function GET(request: Request) {
     workouts,
     consumed,
     burned,
-    net: consumed - burned,
+    netConsumed: consumed - burned,
   };
   return jsonData(body);
 }

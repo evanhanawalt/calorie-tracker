@@ -1,9 +1,20 @@
+import { listIsoDatesInclusive, parseIsoLocal, toIsoLocal } from "@/lib/calendarGrid";
 import { z } from "zod";
+
+/** Max inclusive day span for `start`/`end` calendar queries (leap-year length). */
+export const ISO_DATE_RANGE_MAX_INCLUSIVE_DAYS = 366;
 
 /** yyyy-mm-dd (lexicographic compare matches calendar order). */
 export const isoDateStringSchema = z
   .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, "Must be yyyy-mm-dd");
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Must be yyyy-mm-dd")
+  .refine(
+    (s) => {
+      const d = parseIsoLocal(s);
+      return !Number.isNaN(d.getTime()) && toIsoLocal(d) === s;
+    },
+    { message: "Invalid calendar date" },
+  );
 
 /** Meal/workout row id from Postgres `uuid` column. */
 export const routeUuidSchema = z
@@ -29,12 +40,13 @@ export const dailySummaryWireSchema = z.object({
   workouts: z.array(trackerEntryWireSchema),
   consumed: z.number().finite(),
   burned: z.number().finite(),
-  net: z.number().finite(),
+  /** Meals minus workouts (kcal); UI label remains “Net”. */
+  netConsumed: z.number().finite(),
 });
 
 export const calendarDayWireSchema = z.object({
   date: isoDateStringSchema,
-  net: z.number().finite(),
+  netConsumed: z.number().finite(),
   hasActivity: z.boolean(),
 });
 
@@ -110,7 +122,19 @@ export const isoDateRangeQuerySchema = z
   .refine((v) => v.start <= v.end, {
     message: "start must be <= end",
     path: ["end"],
-  });
+  })
+  .refine(
+    (v) => {
+      const days = listIsoDatesInclusive(v.start, v.end);
+      return (
+        days.length > 0 && days.length <= ISO_DATE_RANGE_MAX_INCLUSIVE_DAYS
+      );
+    },
+    {
+      message: `Date range cannot exceed ${ISO_DATE_RANGE_MAX_INCLUSIVE_DAYS} days`,
+      path: ["end"],
+    },
+  );
 
 export type TrackerEntryWire = z.infer<typeof trackerEntryWireSchema>;
 export type DailySummaryWire = z.infer<typeof dailySummaryWireSchema>;

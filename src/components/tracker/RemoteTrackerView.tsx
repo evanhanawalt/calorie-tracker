@@ -95,9 +95,12 @@ export default function RemoteTrackerView() {
   }
 
   const dayMap = useMemo(() => {
-    const m = new Map<string, { net: number; hasActivity: boolean }>();
+    const m = new Map<string, { netConsumed: number; hasActivity: boolean }>();
     for (const d of calendarQuery.data ?? []) {
-      m.set(d.date, { net: d.net, hasActivity: d.hasActivity });
+      m.set(d.date, {
+        netConsumed: d.netConsumed,
+        hasActivity: d.hasActivity,
+      });
     }
     return m;
   }, [calendarQuery.data]);
@@ -109,14 +112,14 @@ export default function RemoteTrackerView() {
 
   const getActivityDayColor = useCallback(
     (iso: string) => {
-      const net = dayMap.get(iso)?.net ?? 0;
+      const netConsumed = dayMap.get(iso)?.netConsumed ?? 0;
       const b = settingsQuery.data?.bmrKcal ?? DEFAULT_BMR;
-      return contributionColorForNetVsBmr(net, b);
+      return contributionColorForNetVsBmr(netConsumed, b);
     },
     [dayMap, settingsQuery.data],
   );
 
-  const { meals, workouts, consumed, burned, net } = useMemo(() => {
+  const { meals, workouts, consumed, burned, netConsumed } = useMemo(() => {
     const food = summaryQuery.data?.meals ?? [];
     const wo = summaryQuery.data?.workouts ?? [];
     return getDailyTrackerDerivations(food, wo, selectedSummaryDate);
@@ -303,7 +306,7 @@ export default function RemoteTrackerView() {
 
   const headerConsumed = summaryQuery.data?.consumed ?? consumed;
   const headerBurned = summaryQuery.data?.burned ?? burned;
-  const headerNet = summaryQuery.data?.net ?? net;
+  const headerNet = summaryQuery.data?.netConsumed ?? netConsumed;
 
   const editTitle = editTarget
     ? `Edit ${STREAM_UI[editTarget.stream].singular} calories`

@@ -171,7 +171,7 @@ export default function LocalTrackerView() {
     workouts,
     consumed,
     burned,
-    net,
+    netConsumed,
   } = useMemo(
     () =>
       getDailyTrackerDerivations(
@@ -423,7 +423,7 @@ export default function LocalTrackerView() {
                 {formatDateForDisplay(summaryDate)}
               </h2>
               <p className="text-sm text-slate-700">
-                Consumed: {consumed} | Burned: {burned} | Net: {net}
+                Consumed: {consumed} | Burned: {burned} | Net: {netConsumed}
               </p>
             </div>
             <BurnContributionCalendar

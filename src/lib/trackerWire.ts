@@ -22,6 +22,7 @@ export {
   dailySummaryWireSchema,
   deleteOkResponseSchema,
   entryPostBodySchema,
+  ISO_DATE_RANGE_MAX_INCLUSIVE_DAYS,
   isoDateRangeQuerySchema,
   isoDateStringSchema,
   mealMutationResponseSchema,

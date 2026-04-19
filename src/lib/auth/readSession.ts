@@ -1,5 +1,6 @@
 import { Auth } from "@auth/core";
 import type { Session } from "@auth/core/types";
+import { jsonError } from "@/lib/api/routeHttp";
 import { authConfig } from "./auth.config";
 import { sessionUrlForOrigin } from "./authPaths";
 
@@ -39,10 +40,7 @@ export async function requireSession(
 ): Promise<Session | Response> {
   const session = await readSession(request);
   if (!session?.user?.id) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { "Content-Type": "application/json" },
-    });
+    return jsonError("Unauthorized", 401);
   }
   return session;
 }

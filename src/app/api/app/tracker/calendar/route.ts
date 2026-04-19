@@ -44,7 +44,7 @@ export async function GET(request: Request) {
       const workoutRows = w?.rows ?? 0;
       return {
         date,
-        net: consumed - burned,
+        netConsumed: consumed - burned,
         hasActivity: mealRows > 0 || workoutRows > 0,
       };
     },

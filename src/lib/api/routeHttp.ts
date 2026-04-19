@@ -42,13 +42,12 @@ export function jsonError(message: string, status: number): Response {
 export function requireIsoDateQuery(
   request: Request,
   paramName: string,
-  invalidMessage = "Missing or invalid date",
 ): string | Response {
   const url = new URL(request.url);
   const v = url.searchParams.get(paramName);
   const result = isoDateStringSchema.safeParse(v);
   if (!result.success) {
-    return jsonError(invalidMessage, 400);
+    return jsonError(firstZodMessage(result.error), 400);
   }
   return result.data;
 }
@@ -62,7 +61,7 @@ export function requireIsoDateRange(
     end: url.searchParams.get("end"),
   });
   if (!result.success) {
-    return jsonError("Missing or invalid start/end (yyyy-mm-dd)", 400);
+    return jsonError(firstZodMessage(result.error), 400);
   }
   return result.data;
 }

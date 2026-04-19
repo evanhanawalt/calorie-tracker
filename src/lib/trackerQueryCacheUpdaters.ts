@@ -12,7 +12,7 @@ import type { CalendarDayWire, DailySummaryWire, TrackerEntryWire } from "./trac
 function recomputeTotals(s: DailySummaryWire): DailySummaryWire {
   const consumed = sumCalories(s.meals);
   const burned = sumCalories(s.workouts);
-  return { ...s, consumed, burned, net: consumed - burned };
+  return { ...s, consumed, burned, netConsumed: consumed - burned };
 }
 
 function upsertEntry(
@@ -31,7 +31,7 @@ function syncCalendarsForDate(
   date: string,
   summary: DailySummaryWire,
 ): void {
-  const net = summary.net;
+  const netConsumed = summary.netConsumed;
   const hasActivity = summary.meals.length > 0 || summary.workouts.length > 0;
   for (const [queryKey, data] of queryClient.getQueriesData({
     queryKey: trackerQueryKeys.root,
@@ -44,7 +44,7 @@ function syncCalendarsForDate(
     queryClient.setQueryData(
       queryKey,
       days.map((d) =>
-        d.date === date ? { ...d, net, hasActivity } : d,
+        d.date === date ? { ...d, netConsumed, hasActivity } : d,
       ),
     );
   }
@@ -101,7 +101,7 @@ function applyMutateEntry(
       const netDelta = stream === "food" ? entry.calories : -entry.calories;
       patchCalendarDay(queryClient, date, (d) => ({
         ...d,
-        net: d.net + netDelta,
+        netConsumed: d.netConsumed + netDelta,
         hasActivity: true,
       }));
     } else {

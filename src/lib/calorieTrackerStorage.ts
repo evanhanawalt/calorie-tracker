@@ -76,8 +76,11 @@ export function netCaloriesForDate(
  * Fill color for a day with activity, from net calories vs BMR.
  * Bands: large surplus → red; moderate surplus; near maintenance; moderate deficit; large deficit → blue-violet.
  */
-export function contributionColorForNetVsBmr(net: number, bmr: number): string {
-  const d = net - bmr;
+export function contributionColorForNetVsBmr(
+  netConsumed: number,
+  bmr: number,
+): string {
+  const d = netConsumed - bmr;
   if (d > 150) return "#FF0000";
   if (d > 50) return "#CC0033";
   if (d >= -50) return "#990066";
@@ -221,7 +224,7 @@ export type DailyTrackerDerivations = {
   workouts: Entry[];
   consumed: number;
   burned: number;
-  net: number;
+  netConsumed: number;
 };
 
 /** Sorted day lists, per-date groups, and totals for the selected summary date. */
@@ -247,7 +250,7 @@ export function getDailyTrackerDerivations(
     workouts,
     consumed,
     burned,
-    net: consumed - burned,
+    netConsumed: consumed - burned,
   };
 }
 
