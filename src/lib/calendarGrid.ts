@@ -15,6 +15,26 @@ export function toIsoLocal(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+/** Inclusive range of calendar yyyy-mm-dd strings (local dates). */
+export function listIsoDatesInclusive(
+  startIso: string,
+  endIso: string,
+): string[] {
+  const start = parseIsoLocal(startIso);
+  const end = parseIsoLocal(endIso);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return [];
+  }
+  const out: string[] = [];
+  const cur = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  const endT = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+  while (cur.getTime() <= endT.getTime()) {
+    out.push(toIsoLocal(cur));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return out;
+}
+
 /** Week starts Sunday (0) through Saturday (6), matching GitHub-style graphs. */
 export function startOfWeekSunday(d: Date): Date {
   const c = new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -31,13 +51,22 @@ export type ContributionCell = {
   isFuture: boolean;
 };
 
+/** Week columns in the default contribution-style calendar (GitHub-like grid). */
+export const CONTRIBUTION_CALENDAR_DEFAULT_WEEKS = 52;
+
+/**
+ * Inclusive local day count covered by that grid (one cell per consecutive day).
+ */
+export const CONTRIBUTION_CALENDAR_DEFAULT_INCLUSIVE_DAYS =
+  CONTRIBUTION_CALENDAR_DEFAULT_WEEKS * 7;
+
 /**
  * Flat list in column-major order (each week: Sun→Sat) for CSS
  * `grid-template-rows: repeat(7, …); grid-auto-flow: column`.
  */
 export function buildContributionCells(
   todayIso: string,
-  numWeeks = 53,
+  numWeeks = CONTRIBUTION_CALENDAR_DEFAULT_WEEKS,
 ): ContributionCell[] {
   const today = parseIsoLocal(todayIso);
   if (Number.isNaN(today.getTime())) {
@@ -62,6 +91,19 @@ export function buildContributionCells(
     }
   }
   return cells;
+}
+
+/** First and last yyyy-mm-dd in the contribution grid (inclusive). */
+export function contributionCalendarDateBounds(
+  todayIso: string,
+  numWeeks = CONTRIBUTION_CALENDAR_DEFAULT_WEEKS,
+): { start: string; end: string } {
+  const cells = buildContributionCells(todayIso, numWeeks);
+  if (!cells.length) {
+    return { start: todayIso, end: todayIso };
+  }
+  const sorted = cells.map((c) => c.iso).sort((a, b) => a.localeCompare(b));
+  return { start: sorted[0], end: sorted[sorted.length - 1] };
 }
 
 /** First day of month (yyyy-mm-01) for a cell; used for month headers. */

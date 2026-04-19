@@ -4,15 +4,11 @@ import Google from "@auth/core/providers/google";
 import { AUTH_BASE_PATH } from "./authPaths";
 import { upsertGoogleUser } from "../../db/users";
 
-/** Astro/Vite puts `.env` on `import.meta.env`; production hosts set `process.env`. */
+/** Server env: `process.env` (local `.env`, Vercel, etc.). */
 function serverEnv(name: string): string | undefined {
-  const fromMeta = (import.meta.env as Record<string, string | undefined>)[name];
-  if (typeof fromMeta === "string" && fromMeta.length > 0) {
-    return fromMeta;
-  }
-  const fromProc = process.env[name];
-  if (typeof fromProc === "string" && fromProc.length > 0) {
-    return fromProc;
+  const v = process.env[name];
+  if (typeof v === "string" && v.length > 0) {
+    return v;
   }
   return undefined;
 }

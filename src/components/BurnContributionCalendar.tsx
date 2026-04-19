@@ -1,5 +1,6 @@
 import {
   buildContributionCells,
+  CONTRIBUTION_CALENDAR_DEFAULT_WEEKS,
   contributionFiveCellRowWidthCss,
   contributionWeekColumnWidthCss,
   monthKeyForIso,
@@ -258,7 +259,7 @@ function ContributionCalendarLegend({
 
 export default function BurnContributionCalendar({
   todayIso,
-  weeks = 53,
+  weeks = CONTRIBUTION_CALENDAR_DEFAULT_WEEKS,
   selectedDate,
   onSelectDate,
   dayHasActivity,
