@@ -8,10 +8,6 @@ import {
   useState,
 } from "react";
 import {
-  downloadTrackerBackup,
-  parseTrackerBackupFile,
-} from "../../lib/calorieTrackerBackup";
-import {
   contributionColorForNetVsBmr,
   entryItemLabel,
   formatDateForDisplay,
@@ -49,7 +45,7 @@ export default function LocalTrackerView() {
   >({ food: "", workout: "" });
   const [statusMessage, setStatusMessage] = useState("");
   const [statusIsError, setStatusIsError] = useState(false);
-  const [backupMenuOpen, setBackupMenuOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [bmr, setBmr] = useState(() => loadBmr());
   const [bmrDialogOpen, setBmrDialogOpen] = useState(false);
   const [bmrInput, setBmrInput] = useState(() => String(loadBmr()));
@@ -68,9 +64,9 @@ export default function LocalTrackerView() {
     stream: EntryStream;
     entry: Entry;
   }>(null);
-  const backupMenuRef = useRef<HTMLDivElement>(null);
-  const backupMenuButtonRef = useRef<HTMLButtonElement>(null);
-  const backupMenuHeadingId = useId();
+  const menuRef = useRef<HTMLDivElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const menuHeadingId = useId();
 
   function setStatus(message: string, isError = false) {
     setStatusMessage(message);
@@ -96,43 +92,6 @@ export default function LocalTrackerView() {
     dispatch({ type: "addEntry", stream, date, calories });
     setCalorieInputs((prev) => ({ ...prev, [stream]: "" }));
     setStatus(ui.addedMessage);
-  }
-
-  async function onDownloadBackup() {
-    const { saved } = await downloadTrackerBackup({
-      foodEntries,
-      workoutEntries,
-    });
-    if (saved) setStatus("Backup saved.");
-  }
-
-  async function onUploadBackupChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      const text = await file.text();
-      const parsed = parseTrackerBackupFile(text);
-      if (!parsed.ok) {
-        setStatus(
-          "Could not restore backup. Make sure the file is valid JSON.",
-          true,
-        );
-        e.target.value = "";
-        return;
-      }
-      dispatch({
-        type: "restore",
-        foodEntries: parsed.foodEntries,
-        workoutEntries: parsed.workoutEntries,
-      });
-      setStatus("Backup restored successfully.");
-    } catch {
-      setStatus(
-        "Could not restore backup. Make sure the file is valid JSON.",
-        true,
-      );
-    }
-    e.target.value = "";
   }
 
   function openEditDialog(stream: EntryStream, entry: Entry) {
@@ -182,17 +141,17 @@ export default function LocalTrackerView() {
   }
 
   useEffect(() => {
-    if (!backupMenuOpen) return;
+    if (!menuOpen) return;
     function onPointerDown(ev: MouseEvent | TouchEvent) {
-      const el = backupMenuRef.current;
-      const btn = backupMenuButtonRef.current;
+      const el = menuRef.current;
+      const btn = menuButtonRef.current;
       if (!el || !btn) return;
       const target = ev.target as Node;
       if (el.contains(target) || btn.contains(target)) return;
-      setBackupMenuOpen(false);
+      setMenuOpen(false);
     }
     function onKeyDown(ev: KeyboardEvent) {
-      if (ev.key === "Escape") setBackupMenuOpen(false);
+      if (ev.key === "Escape") setMenuOpen(false);
     }
     document.addEventListener("mousedown", onPointerDown);
     document.addEventListener("touchstart", onPointerDown, { passive: true });
@@ -202,7 +161,7 @@ export default function LocalTrackerView() {
       document.removeEventListener("touchstart", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [backupMenuOpen]);
+  }, [menuOpen]);
 
   const {
     allDates,
@@ -242,7 +201,7 @@ export default function LocalTrackerView() {
   function openBmrDialog() {
     setBmrInput(String(bmr));
     setBmrDialogOpen(true);
-    setBackupMenuOpen(false);
+    setMenuOpen(false);
   }
 
   function closeBmrDialog() {
@@ -383,31 +342,31 @@ export default function LocalTrackerView() {
           </div>
           <div className="relative flex shrink-0 justify-end">
             <button
-              ref={backupMenuButtonRef}
+              ref={menuButtonRef}
               type="button"
-              className={`rounded-md p-2 text-slate-700 outline-none ring-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:ring-2 ${backupMenuOpen ? "bg-slate-100" : ""}`}
-              aria-expanded={backupMenuOpen}
+              className={`rounded-md p-2 text-slate-700 outline-none ring-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:ring-2 ${menuOpen ? "bg-slate-100" : ""}`}
+              aria-expanded={menuOpen}
               aria-haspopup="true"
-              aria-controls="backup-restore-menu"
-              onClick={() => setBackupMenuOpen((o) => !o)}
+              aria-controls="app-menu"
+              onClick={() => setMenuOpen((o) => !o)}
               title="Menu"
             >
               <span className="sr-only">
-                Open menu (account, backup, restore, BMR settings)
+                Open menu (account, BMR settings)
               </span>
               <SvgHamburger className="size-6 shrink-0" aria-hidden="true" />
             </button>
 
-            {backupMenuOpen ? (
+            {menuOpen ? (
               <div
-                ref={backupMenuRef}
-                id="backup-restore-menu"
+                ref={menuRef}
+                id="app-menu"
                 role="region"
-                aria-labelledby={backupMenuHeadingId}
+                aria-labelledby={menuHeadingId}
                 className="absolute right-0 top-full z-50 mt-2 min-w-[16rem] rounded-lg border border-slate-200 bg-white p-4 shadow-lg"
               >
                 <h2
-                  id={backupMenuHeadingId}
+                  id={menuHeadingId}
                   className="mb-3 text-lg font-semibold"
                 >
                   Menu
@@ -420,31 +379,11 @@ export default function LocalTrackerView() {
                   >
                     Set daily BMR ({bmr} kcal)
                   </button>
-                  <button
-                    id="download-backup"
-                    type="button"
-                    className="w-full rounded-md bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-900"
-                    onClick={() => {
-                      void onDownloadBackup();
-                    }}
-                  >
-                    Download JSON Backup
-                  </button>
-                  <label className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50">
-                    <span>Upload JSON Backup</span>
-                    <input
-                      id="upload-backup"
-                      type="file"
-                      accept="application/json"
-                      className="hidden"
-                      onChange={onUploadBackupChange}
-                    />
-                  </label>
                   <div className="mt-3 border-t border-slate-200 pt-3">
                     <SignInWithGoogleButton
                       type="button"
                       onClick={() => {
-                        setBackupMenuOpen(false);
+                        setMenuOpen(false);
                         void (async () => {
                           try {
                             await startGoogleSignIn();
@@ -474,7 +413,7 @@ export default function LocalTrackerView() {
             statusIsError ? "text-red-600" : "text-slate-600"
           }`}
         >
-          {statusMessage}
+          {statusMessage}&nbsp;
         </p>
 
         <section className="grid gap-4 rounded-xl bg-white p-4 shadow-sm md:grid-cols-2">
