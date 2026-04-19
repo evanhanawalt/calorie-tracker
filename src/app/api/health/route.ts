@@ -1,8 +1,9 @@
-import type { APIRoute } from "astro";
-import { getSql } from "../../lib/db";
+import { getSql } from "@/lib/db";
+
+export const dynamic = "force-dynamic";
 
 /** Verifies Neon connectivity; use while wiring deploy + env on Vercel. */
-export const GET: APIRoute = async () => {
+export async function GET() {
   try {
     const sql = getSql();
     const [row] = await sql`SELECT 1 AS n`;
@@ -27,4 +28,4 @@ export const GET: APIRoute = async () => {
       },
     );
   }
-};
+}

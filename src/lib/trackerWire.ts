@@ -1,11 +1,3 @@
-/** Client + API wire shape for a logged meal or workout line (matches persisted rows minus DB timestamps). */
-export type TrackerEntryWire = {
-  id: string;
-  date: string;
-  calories: number;
-  displayOrder: number;
-};
-
 /** Keys for persisted tracker entries (localStorage). */
 export const TRACKER_ENTRY_WIRE_KEYS = [
   "id",
@@ -14,22 +6,29 @@ export const TRACKER_ENTRY_WIRE_KEYS = [
   "displayOrder",
 ] as const;
 
-export type DailySummaryWire = {
-  date: string;
-  bmr: number;
-  meals: TrackerEntryWire[];
-  workouts: TrackerEntryWire[];
-  consumed: number;
-  burned: number;
-  net: number;
-};
+export type {
+  CalendarDayWire,
+  DailySummaryWire,
+  TrackerEntryWire,
+  UserSettingsWire,
+} from "./schemas/tracker";
 
-export type CalendarDayWire = {
-  date: string;
-  net: number;
-  hasActivity: boolean;
-};
-
-export type UserSettingsWire = {
-  bmrKcal: number;
-};
+export {
+  apiErrorBodySchema,
+  bmrPatchBodySchema,
+  calendarDayWireSchema,
+  calendarDaysResponseSchema,
+  caloriesPatchBodySchema,
+  dailySummaryWireSchema,
+  deleteOkResponseSchema,
+  entryPostBodySchema,
+  isoDateRangeQuerySchema,
+  isoDateStringSchema,
+  mealMutationResponseSchema,
+  mealsListResponseSchema,
+  routeUuidSchema,
+  trackerEntryWireSchema,
+  userSettingsWireSchema,
+  workoutMutationResponseSchema,
+  workoutsListResponseSchema,
+} from "./schemas/tracker";

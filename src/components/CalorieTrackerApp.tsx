@@ -1,3 +1,5 @@
+"use client";
+
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useAuthSessionQuery } from "../hooks/trackerRemote";

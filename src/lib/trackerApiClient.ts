@@ -1,13 +1,28 @@
-import type {
-  CalendarDayWire,
-  DailySummaryWire,
-  TrackerEntryWire,
-  UserSettingsWire,
+import {
+  apiErrorBodySchema,
+  calendarDaysResponseSchema,
+  dailySummaryWireSchema,
+  deleteOkResponseSchema,
+  mealMutationResponseSchema,
+  userSettingsWireSchema,
+  workoutMutationResponseSchema,
+  type CalendarDayWire,
+  type DailySummaryWire,
+  type TrackerEntryWire,
+  type UserSettingsWire,
 } from "./trackerWire";
+import type { z } from "zod";
 
 const APP = "/api/app";
 
-async function readJson<T>(res: Response): Promise<T> {
+function firstZodMessage(error: z.ZodError): string {
+  return error.issues[0]?.message ?? "Invalid response";
+}
+
+async function readJsonResponse<T>(
+  res: Response,
+  schema: z.ZodType<T>,
+): Promise<T> {
   const text = await res.text();
   let data: unknown;
   try {
@@ -16,39 +31,17 @@ async function readJson<T>(res: Response): Promise<T> {
     throw new Error(`Invalid JSON (${res.status})`);
   }
   if (!res.ok) {
-    const msg =
-      data &&
-      typeof data === "object" &&
-      "error" in data &&
-      typeof (data as { error?: unknown }).error === "string"
-        ? (data as { error: string }).error
-        : `Request failed (${res.status})`;
+    const errParsed = apiErrorBodySchema.safeParse(data);
+    const msg = errParsed.success
+      ? errParsed.data.error
+      : `Request failed (${res.status})`;
     throw new Error(msg);
   }
-  return data as T;
-}
-
-function parseTrackerEntryWire(value: unknown, label: string): TrackerEntryWire {
-  if (!value || typeof value !== "object") {
-    throw new Error(`Invalid ${label} in response`);
+  const parsed = schema.safeParse(data);
+  if (!parsed.success) {
+    throw new Error(firstZodMessage(parsed.error));
   }
-  const o = value as Record<string, unknown>;
-  const id = o.id;
-  const date = o.date;
-  const calories = o.calories;
-  const displayOrder = o.displayOrder;
-  if (typeof id !== "string" || typeof date !== "string") {
-    throw new Error(`Invalid ${label} in response`);
-  }
-  if (typeof calories !== "number" || typeof displayOrder !== "number") {
-    throw new Error(`Invalid ${label} in response`);
-  }
-  return {
-    id,
-    date,
-    calories: Math.round(calories),
-    displayOrder: Math.round(displayOrder),
-  };
+  return parsed.data;
 }
 
 export async function fetchDailySummary(date: string): Promise<DailySummaryWire> {
@@ -56,7 +49,7 @@ export async function fetchDailySummary(date: string): Promise<DailySummaryWire>
     `${APP}/tracker/summary?date=${encodeURIComponent(date)}`,
     { credentials: "same-origin", headers: { Accept: "application/json" } },
   );
-  return readJson<DailySummaryWire>(res);
+  return readJsonResponse(res, dailySummaryWireSchema);
 }
 
 export async function fetchCalendarDays(
@@ -68,7 +61,7 @@ export async function fetchCalendarDays(
     credentials: "same-origin",
     headers: { Accept: "application/json" },
   });
-  const data = await readJson<{ days: CalendarDayWire[] }>(res);
+  const data = await readJsonResponse(res, calendarDaysResponseSchema);
   return data.days;
 }
 
@@ -77,7 +70,7 @@ export async function fetchUserSettings(): Promise<UserSettingsWire> {
     credentials: "same-origin",
     headers: { Accept: "application/json" },
   });
-  return readJson<UserSettingsWire>(res);
+  return readJsonResponse(res, userSettingsWireSchema);
 }
 
 export async function patchUserSettings(
@@ -92,7 +85,7 @@ export async function patchUserSettings(
     },
     body: JSON.stringify(body),
   });
-  return readJson<UserSettingsWire>(res);
+  return readJsonResponse(res, userSettingsWireSchema);
 }
 
 export async function postMeal(body: {
@@ -108,8 +101,8 @@ export async function postMeal(body: {
     },
     body: JSON.stringify({ date: body.date, calories: body.calories }),
   });
-  const data = await readJson<{ meal: unknown }>(res);
-  return parseTrackerEntryWire(data.meal, "meal");
+  const data = await readJsonResponse(res, mealMutationResponseSchema);
+  return data.meal;
 }
 
 export async function patchMeal(
@@ -125,8 +118,8 @@ export async function patchMeal(
     },
     body: JSON.stringify({ calories }),
   });
-  const data = await readJson<{ meal: unknown }>(res);
-  return parseTrackerEntryWire(data.meal, "meal");
+  const data = await readJsonResponse(res, mealMutationResponseSchema);
+  return data.meal;
 }
 
 export async function deleteMealApi(id: string): Promise<void> {
@@ -135,7 +128,7 @@ export async function deleteMealApi(id: string): Promise<void> {
     credentials: "same-origin",
     headers: { Accept: "application/json" },
   });
-  await readJson<{ ok: boolean }>(res);
+  await readJsonResponse(res, deleteOkResponseSchema);
 }
 
 export async function postWorkout(body: {
@@ -151,8 +144,8 @@ export async function postWorkout(body: {
     },
     body: JSON.stringify({ date: body.date, calories: body.calories }),
   });
-  const data = await readJson<{ workout: unknown }>(res);
-  return parseTrackerEntryWire(data.workout, "workout");
+  const data = await readJsonResponse(res, workoutMutationResponseSchema);
+  return data.workout;
 }
 
 export async function patchWorkout(
@@ -168,8 +161,8 @@ export async function patchWorkout(
     },
     body: JSON.stringify({ calories }),
   });
-  const data = await readJson<{ workout: unknown }>(res);
-  return parseTrackerEntryWire(data.workout, "workout");
+  const data = await readJsonResponse(res, workoutMutationResponseSchema);
+  return data.workout;
 }
 
 export async function deleteWorkoutApi(id: string): Promise<void> {
@@ -178,5 +171,5 @@ export async function deleteWorkoutApi(id: string): Promise<void> {
     credentials: "same-origin",
     headers: { Accept: "application/json" },
   });
-  await readJson<{ ok: boolean }>(res);
+  await readJsonResponse(res, deleteOkResponseSchema);
 }

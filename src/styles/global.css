@@ -3,7 +3,7 @@
 /* Roboto Medium for Sign in with Google (see developers.google.com/identity/branding-guidelines). */
 @layer base {
   .font-google-sign-in {
-    font-family: "Roboto", ui-sans-serif, system-ui, sans-serif;
+    font-family: var(--font-roboto), ui-sans-serif, system-ui, sans-serif;
     font-weight: 500;
   }
 }

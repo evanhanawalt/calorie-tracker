@@ -3,7 +3,7 @@ import type { SVGProps } from "react";
 /**
  * Light-theme "Sign in with Google" control styles (fill, stroke, type color)
  * per https://developers.google.com/identity/branding-guidelines
- * Roboto Medium 14/20 is applied where these classes are used (see index.astro font link).
+ * Roboto Medium 14/20 is applied where these classes are used (see root layout `next/font`).
  */
 export const GOOGLE_SIGN_IN_BUTTON_CLASSNAME =
   "inline-flex min-h-10 items-center justify-center gap-3 rounded border border-[#747775] bg-white px-4 py-2 text-left text-sm font-medium leading-5 text-[#1F1F1F] transition-colors hover:bg-[#F8F9FA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#747775] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
