@@ -1,8 +1,4 @@
-import {
-  insertMeal,
-  listMealsForDate,
-  nextMealDisplayOrder,
-} from "@/db/trackerRepo";
+import { insertMeal, listMealsForDate } from "@/db/trackerRepo";
 import { jsonData, readJsonZod, requireIsoDateQuery } from "@/lib/api/routeHttp";
 import { requireSession } from "@/lib/auth/readSession";
 import { entryPostBodySchema } from "@/lib/trackerWire";
@@ -30,12 +26,10 @@ export async function POST(request: Request) {
   const body = await readJsonZod(request, entryPostBodySchema);
   if (body instanceof Response) return body;
 
-  const displayOrder = await nextMealDisplayOrder(session.user.id, body.date);
   const row = await insertMeal({
     userId: session.user.id,
     entryDate: body.date,
     calories: body.calories,
-    displayOrder,
   });
   if (!row) {
     return jsonData({ error: "Insert failed" }, 500);

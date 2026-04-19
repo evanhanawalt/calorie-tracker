@@ -1,4 +1,5 @@
 import {
+  index,
   integer,
   pgTable,
   text,
@@ -29,29 +30,47 @@ const entryTimestamps = {
     .defaultNow(),
 };
 
-export const mealEntries = pgTable("meal_entries", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  /** Calendar day in local yyyy-mm-dd (same convention as the app). */
-  entryDate: text("entry_date").notNull(),
-  calories: integer("calories").notNull(),
-  /** Sort key within a day; not rewritten when other rows are deleted. */
-  displayOrder: integer("display_order").notNull(),
-  ...entryTimestamps,
-});
+export const mealEntries = pgTable(
+  "meal_entries",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** Calendar day in local yyyy-mm-dd (same convention as the app). */
+    entryDate: text("entry_date").notNull(),
+    calories: integer("calories").notNull(),
+    /** Sort key within a day; not rewritten when other rows are deleted. */
+    displayOrder: integer("display_order").notNull(),
+    ...entryTimestamps,
+  },
+  (table) => [
+    index("meal_entries_user_id_entry_date_idx").on(
+      table.userId,
+      table.entryDate,
+    ),
+  ],
+);
 
-export const workoutEntries = pgTable("workout_entries", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  entryDate: text("entry_date").notNull(),
-  calories: integer("calories").notNull(),
-  displayOrder: integer("display_order").notNull(),
-  ...entryTimestamps,
-});
+export const workoutEntries = pgTable(
+  "workout_entries",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    entryDate: text("entry_date").notNull(),
+    calories: integer("calories").notNull(),
+    displayOrder: integer("display_order").notNull(),
+    ...entryTimestamps,
+  },
+  (table) => [
+    index("workout_entries_user_id_entry_date_idx").on(
+      table.userId,
+      table.entryDate,
+    ),
+  ],
+);
 
 export const userSettings = pgTable("user_settings", {
   userId: text("user_id")

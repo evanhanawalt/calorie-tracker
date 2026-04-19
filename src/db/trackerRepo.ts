@@ -1,6 +1,12 @@
 import { and, asc, eq, gte, lte, sql } from "drizzle-orm";
+import type { PgInsertSelectQueryBuilder } from "drizzle-orm/pg-core/query-builders/insert";
 import { getDb } from "./client";
-import { mealEntries, workoutEntries } from "./schema";
+import {
+  mealEntries,
+  workoutEntries,
+  type MealEntryRow,
+  type WorkoutEntryRow,
+} from "./schema";
 
 export async function listAllMealsForUser(userId: string) {
   const db = getDb();
@@ -18,39 +24,6 @@ export async function listAllWorkoutsForUser(userId: string) {
     .from(workoutEntries)
     .where(eq(workoutEntries.userId, userId))
     .orderBy(asc(workoutEntries.entryDate), asc(workoutEntries.displayOrder));
-}
-
-export async function nextMealDisplayOrder(
-  userId: string,
-  entryDate: string,
-): Promise<number> {
-  const db = getDb();
-  const [row] = await db
-    .select({ m: sql<number>`coalesce(max(${mealEntries.displayOrder}), 0)` })
-    .from(mealEntries)
-    .where(
-      and(eq(mealEntries.userId, userId), eq(mealEntries.entryDate, entryDate)),
-    );
-  return Number(row?.m ?? 0) + 1;
-}
-
-export async function nextWorkoutDisplayOrder(
-  userId: string,
-  entryDate: string,
-): Promise<number> {
-  const db = getDb();
-  const [row] = await db
-    .select({
-      m: sql<number>`coalesce(max(${workoutEntries.displayOrder}), 0)`,
-    })
-    .from(workoutEntries)
-    .where(
-      and(
-        eq(workoutEntries.userId, userId),
-        eq(workoutEntries.entryDate, entryDate),
-      ),
-    );
-  return Number(row?.m ?? 0) + 1;
 }
 
 export async function listMealsForDate(userId: string, entryDate: string) {
@@ -78,41 +51,93 @@ export async function listWorkoutsForDate(userId: string, entryDate: string) {
     .orderBy(asc(workoutEntries.displayOrder));
 }
 
-export async function insertMeal(params: {
+type InsertEntryParams = {
   userId: string;
   entryDate: string;
   calories: number;
-  displayOrder: number;
-}) {
+};
+
+export async function insertMeal(
+  params: InsertEntryParams,
+): Promise<MealEntryRow | undefined> {
   const db = getDb();
+  const next = db.$with("next").as((qb) =>
+    qb
+      .select({
+        displayOrder: sql<number>`coalesce(max(${mealEntries.displayOrder}), 0) + 1`.as(
+          "display_order",
+        ),
+      })
+      .from(mealEntries)
+      .where(
+        and(
+          eq(mealEntries.userId, params.userId),
+          eq(mealEntries.entryDate, params.entryDate),
+        ),
+      ),
+  );
+
   const [row] = await db
+    .with(next)
     .insert(mealEntries)
-    .values({
-      userId: params.userId,
-      entryDate: params.entryDate,
-      calories: params.calories,
-      displayOrder: params.displayOrder,
-    })
+    .select((qb) =>
+      qb
+        .select({
+          id: sql<string>`gen_random_uuid()`.as(mealEntries.id.name),
+          userId: sql<string>`${params.userId}`.as(mealEntries.userId.name),
+          entryDate: sql<string>`${params.entryDate}`.as(mealEntries.entryDate.name),
+          calories: sql<number>`${params.calories}`.as(mealEntries.calories.name),
+          displayOrder: next.displayOrder,
+          createdAt: sql<Date>`now()`.as(mealEntries.createdAt.name),
+          updatedAt: sql<Date>`now()`.as(mealEntries.updatedAt.name),
+        })
+        // drizzle-orm insert().select() expects PgInsertSelectQueryBuilder; qb.select() is typed as PgSelectQueryBuilderBase (same SQL at runtime).
+        .from(next) as PgInsertSelectQueryBuilder<typeof mealEntries>,
+    )
     .returning();
+
   return row;
 }
 
-export async function insertWorkout(params: {
-  userId: string;
-  entryDate: string;
-  calories: number;
-  displayOrder: number;
-}) {
+export async function insertWorkout(
+  params: InsertEntryParams,
+): Promise<WorkoutEntryRow | undefined> {
   const db = getDb();
+  const next = db.$with("next").as((qb) =>
+    qb
+      .select({
+        displayOrder: sql<number>`coalesce(max(${workoutEntries.displayOrder}), 0) + 1`.as(
+          "display_order",
+        ),
+      })
+      .from(workoutEntries)
+      .where(
+        and(
+          eq(workoutEntries.userId, params.userId),
+          eq(workoutEntries.entryDate, params.entryDate),
+        ),
+      ),
+  );
+
   const [row] = await db
+    .with(next)
     .insert(workoutEntries)
-    .values({
-      userId: params.userId,
-      entryDate: params.entryDate,
-      calories: params.calories,
-      displayOrder: params.displayOrder,
-    })
+    .select((qb) =>
+      qb
+        .select({
+          id: sql<string>`gen_random_uuid()`.as(workoutEntries.id.name),
+          userId: sql<string>`${params.userId}`.as(workoutEntries.userId.name),
+          entryDate: sql<string>`${params.entryDate}`.as(workoutEntries.entryDate.name),
+          calories: sql<number>`${params.calories}`.as(workoutEntries.calories.name),
+          displayOrder: next.displayOrder,
+          createdAt: sql<Date>`now()`.as(workoutEntries.createdAt.name),
+          updatedAt: sql<Date>`now()`.as(workoutEntries.updatedAt.name),
+        })
+        // drizzle-orm insert().select() expects PgInsertSelectQueryBuilder; qb.select() is typed as PgSelectQueryBuilderBase (same SQL at runtime).
+        .from(next) as PgInsertSelectQueryBuilder<typeof workoutEntries>,
+    )
     .returning();
+
   return row;
 }
 

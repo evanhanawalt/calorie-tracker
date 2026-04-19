@@ -1,0 +1,2 @@
+CREATE INDEX "meal_entries_user_id_entry_date_idx" ON "meal_entries" USING btree ("user_id","entry_date");--> statement-breakpoint
+CREATE INDEX "workout_entries_user_id_entry_date_idx" ON "workout_entries" USING btree ("user_id","entry_date");
