@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import { getDb } from "./client";
 import { users } from "./schema";
 
@@ -33,4 +34,30 @@ export async function upsertGoogleUser(params: {
     throw new Error("upsertGoogleUser: no row returned");
   }
   return row;
+}
+
+export async function deleteUserById(userId: string): Promise<void> {
+  const db = getDb();
+  await db.delete(users).where(eq(users.id, userId));
+}
+
+export async function setMigrationCompleted(
+  userId: string,
+  completed: boolean,
+): Promise<void> {
+  const db = getDb();
+  await db
+    .update(users)
+    .set({ migrationCompleted: completed, updatedAt: new Date() })
+    .where(eq(users.id, userId));
+}
+
+export async function getMigrationCompleted(userId: string): Promise<boolean> {
+  const db = getDb();
+  const [row] = await db
+    .select({ migrationCompleted: users.migrationCompleted })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  return row?.migrationCompleted ?? false;
 }

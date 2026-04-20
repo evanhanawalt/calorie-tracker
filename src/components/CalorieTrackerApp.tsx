@@ -1,16 +1,16 @@
 "use client";
 
-import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useAuthSessionQuery } from "../hooks/trackerRemote";
 import {
+  clearSessionPreferredLocal,
   hasSessionPreferredLocal,
   setSessionPreferredLocal,
 } from "../lib/trackerStorageChoice";
 import { authQueryKeys } from "../lib/trackerQueryKeys";
-import LocalTrackerView from "./tracker/LocalTrackerView";
-import RemoteTrackerView from "./tracker/RemoteTrackerView";
 import TrackerStorageLanding from "./TrackerStorageLanding";
+import TrackerView from "./tracker/TrackerView";
 
 function CalorieTrackerBody() {
   const queryClient = useQueryClient();
@@ -27,6 +27,14 @@ function CalorieTrackerBody() {
     return () => window.removeEventListener("focus", onFocus);
   }, [queryClient]);
 
+  /** Signed-in users should pick cloud vs local via landing after sign-out, not a stale session flag. */
+  useEffect(() => {
+    if (session.isPending) return;
+    if (session.data?.user) {
+      clearSessionPreferredLocal();
+    }
+  }, [session.data?.user, session.isPending]);
+
   if (session.isPending) {
     return (
       <p className="mx-auto max-w-4xl p-8 text-center text-slate-600">
@@ -36,7 +44,7 @@ function CalorieTrackerBody() {
   }
 
   if (session.data?.user) {
-    return <RemoteTrackerView />;
+    return <TrackerView storageMode="remote" />;
   }
 
   if (mode === "landing") {
@@ -50,24 +58,9 @@ function CalorieTrackerBody() {
     );
   }
 
-  return <LocalTrackerView />;
+  return <TrackerView storageMode="local" />;
 }
 
 export default function CalorieTrackerApp() {
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            staleTime: 30_000,
-          },
-        },
-      }),
-  );
-
-  return (
-    <QueryClientProvider client={queryClient}>
-      <CalorieTrackerBody />
-    </QueryClientProvider>
-  );
+  return <CalorieTrackerBody />;
 }

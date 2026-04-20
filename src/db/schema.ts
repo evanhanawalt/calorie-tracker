@@ -1,4 +1,5 @@
 import {
+  boolean,
   index,
   integer,
   pgTable,
@@ -19,6 +20,8 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
+  /** One-time local→cloud migration prompt completed (migrated, declined, or no local data). */
+  migrationCompleted: boolean("migration_completed").notNull().default(false),
 });
 
 const entryTimestamps = {

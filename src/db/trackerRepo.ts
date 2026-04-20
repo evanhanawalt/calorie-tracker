@@ -26,6 +26,22 @@ export async function listAllWorkoutsForUser(userId: string) {
     .orderBy(asc(workoutEntries.entryDate), asc(workoutEntries.displayOrder));
 }
 
+export async function countTrackerRowsForUser(userId: string): Promise<{
+  meals: number;
+  workouts: number;
+}> {
+  const db = getDb();
+  const [m] = await db
+    .select({ c: sql<number>`count(*)::int`.mapWith(Number) })
+    .from(mealEntries)
+    .where(eq(mealEntries.userId, userId));
+  const [w] = await db
+    .select({ c: sql<number>`count(*)::int`.mapWith(Number) })
+    .from(workoutEntries)
+    .where(eq(workoutEntries.userId, userId));
+  return { meals: m?.c ?? 0, workouts: w?.c ?? 0 };
+}
+
 export async function listMealsForDate(userId: string, entryDate: string) {
   const db = getDb();
   return db
@@ -247,30 +263,27 @@ export async function replaceAllTrackerEntries(params: {
   workouts: { entryDate: string; calories: number; displayOrder: number }[];
 }) {
   const db = getDb();
-  await db.transaction(async (tx) => {
-    await tx.delete(mealEntries).where(eq(mealEntries.userId, params.userId));
-    await tx
-      .delete(workoutEntries)
-      .where(eq(workoutEntries.userId, params.userId));
-    if (params.meals.length) {
-      await tx.insert(mealEntries).values(
-        params.meals.map((m) => ({
-          userId: params.userId,
-          entryDate: m.entryDate,
-          calories: m.calories,
-          displayOrder: m.displayOrder,
-        })),
-      );
-    }
-    if (params.workouts.length) {
-      await tx.insert(workoutEntries).values(
-        params.workouts.map((w) => ({
-          userId: params.userId,
-          entryDate: w.entryDate,
-          calories: w.calories,
-          displayOrder: w.displayOrder,
-        })),
-      );
-    }
-  });
+  // neon-http has no `transaction()`; run steps in order (same outcome as a txn for this flow).
+  await db.delete(mealEntries).where(eq(mealEntries.userId, params.userId));
+  await db.delete(workoutEntries).where(eq(workoutEntries.userId, params.userId));
+  if (params.meals.length) {
+    await db.insert(mealEntries).values(
+      params.meals.map((m) => ({
+        userId: params.userId,
+        entryDate: m.entryDate,
+        calories: m.calories,
+        displayOrder: m.displayOrder,
+      })),
+    );
+  }
+  if (params.workouts.length) {
+    await db.insert(workoutEntries).values(
+      params.workouts.map((w) => ({
+        userId: params.userId,
+        entryDate: w.entryDate,
+        calories: w.calories,
+        displayOrder: w.displayOrder,
+      })),
+    );
+  }
 }
