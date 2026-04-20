@@ -128,24 +128,11 @@ export default function SettingsPage() {
         </div>
 
         <Sticker delay={80} className="bg-cream px-6 py-7 md:px-8">
-          <span className="tracker-chip bg-lav text-chip uppercase tracking-label">
-            Settings
-          </span>
-          <h1 className="mt-3 font-display text-display-hero-sm leading-none">
+          <h1 className="font-display text-display-hero-sm leading-none">
             Settings
           </h1>
-          <p className="mt-2 text-sm text-muted">
-            {mode === "remote"
-              ? "Your basal metabolic rate is stored in your account."
-              : "Your basal metabolic rate is stored on this device only."}
-          </p>
-        </Sticker>
 
-        <Sticker delay={160} className="bg-lime px-6 py-6">
-          <span className="tracker-chip bg-cream text-chip uppercase tracking-label">
-            Daily BMR (kcal)
-          </span>
-          <h2 className="mt-3 font-display text-display-md leading-none">
+          <h2 className="mt-6 font-display text-display-md leading-none">
             Basal metabolic rate
           </h2>
           <p className="mt-1 text-sm text-muted">
