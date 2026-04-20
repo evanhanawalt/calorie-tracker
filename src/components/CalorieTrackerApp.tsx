@@ -1,6 +1,5 @@
 "use client";
 
-import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useAuthSessionQuery } from "../hooks/trackerRemote";
 import {
@@ -8,24 +7,14 @@ import {
   hasSessionPreferredLocal,
   setSessionPreferredLocal,
 } from "../lib/trackerStorageChoice";
-import { authQueryKeys } from "../lib/trackerQueryKeys";
 import TrackerStorageLanding from "./TrackerStorageLanding";
 import TrackerView from "./tracker/TrackerView";
 
 function CalorieTrackerBody() {
-  const queryClient = useQueryClient();
   const session = useAuthSessionQuery();
   const [mode, setMode] = useState<"landing" | "local">(() =>
     hasSessionPreferredLocal() ? "local" : "landing",
   );
-
-  useEffect(() => {
-    function onFocus() {
-      void queryClient.invalidateQueries({ queryKey: authQueryKeys.session });
-    }
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-  }, [queryClient]);
 
   /** Signed-in users should pick cloud vs local via landing after sign-out, not a stale session flag. */
   useEffect(() => {
