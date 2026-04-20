@@ -4,10 +4,12 @@ import { useCallback, useId, useMemo, useRef, useState } from "react";
 import { contributionCalendarDateBounds } from "@/lib/calendarGrid";
 import {
   contributionColorForNetVsBmr,
+  contributionTextColorForNetVsBmr,
   DEFAULT_BMR,
   formatDateForDisplay,
   getDailyTrackerDerivations,
   getLocalTodayIso,
+  netVsBmrState,
   type Entry,
   type EntryStream,
 } from "@/lib/calorieTrackerStorage";
@@ -345,7 +347,7 @@ export default function TrackerView({ storageMode }: TrackerViewProps) {
 
           <Sticker
             delay={160}
-            className="bg-lime px-4 py-6 md:px-7"
+            className="bg-cream px-4 py-6 md:px-7"
           >
             <div className="flex items-baseline justify-between">
               <h2 className="font-display text-display-lg leading-none">
@@ -417,6 +419,21 @@ function HeroSticker({
   loading: boolean;
 }) {
   const over = delta > 0;
+  const state = netVsBmrState(net, bmr);
+  const badgeBg = contributionColorForNetVsBmr(net, bmr);
+  const badgeText = contributionTextColorForNetVsBmr(net, bmr);
+  const stateLabel =
+    state === "over" ? (
+      "Over"
+    ) : state === "under" ? (
+      "Under"
+    ) : (
+      <>
+        On
+        <br />
+        Target
+      </>
+    );
   return (
     <Sticker
       delay={80}
@@ -425,10 +442,11 @@ function HeroSticker({
       <CircleIcon
         as="span"
         size="lg"
-        className={`absolute -right-3 -top-3 font-display text-center leading-tight shadow-sticker-sm ${over ? "bg-hot text-cream" : "bg-lime text-ink"}`}
+        className="absolute -right-3 -top-3 font-display text-center leading-tight shadow-sticker-sm"
+        style={{ backgroundColor: badgeBg, color: badgeText }}
         aria-hidden
       >
-        {over ? "Over" : "Under"}
+        {stateLabel}
       </CircleIcon>
       <p className="text-xs uppercase tracking-eyebrow text-hot">
         {isToday ? `Today · ${dateLabel}` : dateLabel}
@@ -439,7 +457,7 @@ function HeroSticker({
             Net kcal
           </p>
           <p
-            className={`font-display text-display-hero-lg leading-[0.85] tabular-nums ${over ? "text-hot" : "text-ink"}`}
+            className={"font-display text-display-hero-lg leading-[0.85] tabular-nums text-ink"}
           >
             {loading ? "—" : net.toLocaleString()}
           </p>
@@ -448,7 +466,7 @@ function HeroSticker({
           <Chip className="bg-ocean" label={`Consumed ${consumed}`} />
           <Chip className="bg-hot text-cream" label={`Burned ${burned}`} />
           <Chip
-            className={over ? "bg-sun" : "bg-lime"}
+            className={"bg-sun"}
             label={`${over ? "+" : ""}${delta} vs BMR ${bmr}`}
           />
         </div>

@@ -87,6 +87,38 @@ export function contributionColorForNetVsBmr(
   return "#44ce1b";
 }
 
+/**
+ * Legible foreground color on top of
+ * {@link contributionColorForNetVsBmr}. Cream on the deep red band; ink
+ * on every other band.
+ */
+export function contributionTextColorForNetVsBmr(
+  netConsumed: number,
+  bmr: number,
+): string {
+  return netConsumed - bmr > 200
+    ? "var(--color-cream)"
+    : "var(--color-ink)";
+}
+
+/** Three-way bucket for the net-vs-BMR label (Under / On Target / Over). */
+export type NetVsBmrState = "under" | "onTarget" | "over";
+
+/**
+ * On target when the net-vs-BMR delta is strictly between -100 and
+ * +100 kcal. At exactly ±100 the user falls into the adjacent Under/Over
+ * bucket.
+ */
+export function netVsBmrState(
+  netConsumed: number,
+  bmr: number,
+): NetVsBmrState {
+  const d = netConsumed - bmr;
+  if (d >= 100) return "over";
+  if (d <= -100) return "under";
+  return "onTarget";
+}
+
 export type ContributionLegendBand = {
   readonly color: string;
   readonly label: string;

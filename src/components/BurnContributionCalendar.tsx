@@ -1,15 +1,17 @@
+import { useState } from "react";
 import {
   buildContributionCells,
-  contributionFiveCellRowWidthCss,
-  contributionWeekColumnWidthCss,
   monthKeyForIso,
   parseIsoLocal,
+  startOfWeekSunday,
+  toIsoLocal,
   type ContributionCell,
 } from "../lib/calendarGrid";
 import {
   CONTRIBUTION_LEGEND_BANDS,
   formatDateForDisplay,
 } from "../lib/calorieTrackerStorage";
+import { SvgChevronLeft, SvgChevronRight } from "../svgs";
 
 type Props = {
   todayIso: string;
@@ -223,42 +225,101 @@ function ContributionBand({
   );
 }
 
-function ContributionCalendarLegend({
-  weekColumnCount,
-}: {
-  weekColumnCount: number;
-}) {
-  const cellW = contributionWeekColumnWidthCss(weekColumnCount);
-  const bmrStripW = contributionFiveCellRowWidthCss(weekColumnCount);
+const LEGEND_GRADIENT = `linear-gradient(to right, ${CONTRIBUTION_LEGEND_BANDS.map(
+  (b) => b.color,
+).join(", ")})`;
 
+function ContributionCalendarLegend() {
   return (
     <div
-      className="ml-6 mt-3 flex flex-col gap-1 border-t border-ink/20 pt-3"
+      className="flex items-center justify-center gap-2"
       role="region"
-      aria-label="Calendar color legend: net calories versus BMR, and disabled days"
+      aria-label="Calendar color legend: net calories versus BMR"
     >
-      <div className="flex w-full items-center gap-1">
-        {CONTRIBUTION_LEGEND_BANDS.map((band) => (
-          <div
-            key={band.color}
-            title={band.label}
-            className="box-border min-h-[14px] shrink-0 rounded-full"
-            style={{
-              width: cellW,
-              minHeight: "14px",
-              backgroundColor: band.color,
-              border: "1.5px solid var(--color-ink)",
-            }}
-          />
-        ))}
-      </div>
+      <span className="font-display text-[10px] italic text-muted">
+        under BMR
+      </span>
       <div
-        className="flex justify-between gap-2 font-display text-[11px] italic text-muted"
-        style={{ width: bmrStripW }}
+        className="h-2.5 w-24 rounded-full"
+        style={{
+          background: LEGEND_GRADIENT,
+          border: "1.5px solid var(--color-ink)",
+        }}
+        title="Net calories versus BMR: green is under, red is over"
+        aria-hidden="true"
+      />
+      <span className="font-display text-[10px] italic text-muted">
+        over BMR
+      </span>
+    </div>
+  );
+}
+
+function shiftIsoByDays(iso: string, days: number): string {
+  const d = parseIsoLocal(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  d.setDate(d.getDate() + days);
+  return toIsoLocal(d);
+}
+
+function formatRangeLabel(startIso: string, endIso: string): string {
+  const s = parseIsoLocal(startIso);
+  const e = parseIsoLocal(endIso);
+  if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) return "";
+  const sameYear = s.getFullYear() === e.getFullYear();
+  const startLabel = s.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    ...(sameYear ? {} : { year: "numeric" }),
+  });
+  const endLabel = e.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+  return `${startLabel} – ${endLabel}`;
+}
+
+type NavProps = {
+  onPrev: () => void;
+  onNext: () => void;
+  canGoNext: boolean;
+  rangeLabel: string;
+};
+
+function ContributionCalendarNav({
+  onPrev,
+  onNext,
+  canGoNext,
+  rangeLabel,
+}: NavProps) {
+  return (
+    <div className="flex items-center justify-center gap-2 text-muted">
+      <button
+        type="button"
+        onClick={onPrev}
+        aria-label="Show earlier weeks"
+        title="Earlier weeks"
+        className="flex h-6 w-6 items-center justify-center rounded-full border-[1.5px] border-ink/40 text-ink transition-colors hover:border-ink hover:bg-ink hover:text-cream"
       >
-        <span>under BMR</span>
-        <span>over BMR</span>
-      </div>
+        <SvgChevronLeft className="size-3.5" aria-hidden="true" />
+      </button>
+      <span
+        className="min-w-36 text-center font-display text-[11px] italic tabular-nums"
+        aria-live="polite"
+      >
+        {rangeLabel}
+      </span>
+      <button
+        type="button"
+        onClick={onNext}
+        disabled={!canGoNext}
+        aria-label="Show later weeks"
+        title={canGoNext ? "Later weeks" : "Already at the latest week"}
+        className="flex h-6 w-6 items-center justify-center rounded-full border-[1.5px] border-ink/40 text-ink transition-colors enabled:hover:border-ink enabled:hover:bg-ink enabled:hover:text-cream disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        <SvgChevronRight className="size-3.5" aria-hidden="true" />
+      </button>
     </div>
   );
 }
@@ -275,7 +336,24 @@ export default function BurnContributionCalendar({
   dayHasActivity,
   getActivityDayColor,
 }: Props) {
-  const cells = buildContributionCells(todayIso, CONDENSED_WEEKS);
+  const [weekOffset, setWeekOffset] = useState(0);
+
+  const anchorIso =
+    weekOffset === 0 ? todayIso : shiftIsoByDays(todayIso, weekOffset * 7);
+  const cells = buildContributionCells(todayIso, CONDENSED_WEEKS, anchorIso);
+
+  const firstIso = cells[0]?.iso ?? todayIso;
+  const lastCellIso = cells[cells.length - 1]?.iso ?? todayIso;
+  const lastVisibleIso = lastCellIso > todayIso ? todayIso : lastCellIso;
+  const rangeLabel = formatRangeLabel(firstIso, lastVisibleIso);
+
+  const canGoNext = (() => {
+    const todaySunday = toIsoLocal(startOfWeekSunday(parseIsoLocal(todayIso)));
+    const anchorSunday = toIsoLocal(
+      startOfWeekSunday(parseIsoLocal(anchorIso)),
+    );
+    return anchorSunday < todaySunday;
+  })();
 
   return (
     <div className="space-y-3">
@@ -293,7 +371,13 @@ export default function BurnContributionCalendar({
           getActivityDayColor={getActivityDayColor}
         />
       </div>
-      <ContributionCalendarLegend weekColumnCount={CONDENSED_WEEKS} />
+      <ContributionCalendarNav
+        onPrev={() => setWeekOffset((o) => o - 1)}
+        onNext={() => setWeekOffset((o) => Math.min(0, o + 1))}
+        canGoNext={canGoNext}
+        rangeLabel={rangeLabel}
+      />
+      <ContributionCalendarLegend />
     </div>
   );
 }
