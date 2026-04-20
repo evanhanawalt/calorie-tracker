@@ -1,6 +1,5 @@
 import {
   buildContributionCells,
-  CONTRIBUTION_CALENDAR_DEFAULT_WEEKS,
   contributionFiveCellRowWidthCss,
   contributionWeekColumnWidthCss,
   monthKeyForIso,
@@ -14,7 +13,6 @@ import {
 
 type Props = {
   todayIso: string;
-  weeks?: number;
   selectedDate: string;
   onSelectDate: (iso: string) => void;
   /** True when there was any logged activity on that calendar day (e.g. meal or workout). */
@@ -22,6 +20,9 @@ type Props = {
   /** Background for days with activity (net vs BMR palette). Only called when `dayHasActivity(iso)`. */
   getActivityDayColor: (iso: string) => string;
 };
+
+/** Rolling window of weeks rendered in the condensed heatmap. */
+const CONDENSED_WEEKS = 6;
 
 function monthLabelForIso(iso: string): string {
   const d = parseIsoLocal(iso);
@@ -97,6 +98,7 @@ type BandProps = {
   startWeek: number;
   weekCount: number;
   allCells: ContributionCell[];
+  todayIso: string;
   selectedDate: string;
   onSelectDate: (iso: string) => void;
   dayHasActivity: (iso: string) => boolean;
@@ -109,6 +111,7 @@ function ContributionBand({
   startWeek,
   weekCount,
   allCells,
+  todayIso,
   selectedDate,
   onSelectDate,
   dayHasActivity,
@@ -123,10 +126,7 @@ function ContributionBand({
   const colTemplate = `repeat(${weekCount}, minmax(0, 1fr))`;
 
   return (
-    <div
-      className="flex min-w-0 flex-col gap-1 [--activity-off:var(--color-slate-200)]"
-      role="presentation"
-    >
+    <div className="flex min-w-0 flex-col gap-1" role="presentation">
       <div
         className="grid gap-1"
         style={{
@@ -138,7 +138,7 @@ function ContributionBand({
         {monthHeaderSegments.map((seg) => (
           <div
             key={`mh-${startWeek}-${seg.startCol}-${seg.label}`}
-            className="flex min-h-4 min-w-0 select-none items-start justify-start overflow-hidden whitespace-nowrap text-[12px] leading-none text-slate-500"
+            className="flex min-h-4 min-w-0 select-none items-start justify-start overflow-hidden whitespace-nowrap font-display text-[12px] italic leading-none text-muted"
             style={{ gridColumn: `${seg.startCol} / span ${seg.span}` }}
             title={seg.label}
           >
@@ -149,13 +149,13 @@ function ContributionBand({
 
       <div className="flex min-w-0 gap-1">
         <div
-          className="grid w-7 shrink-0 select-none grid-rows-7 gap-1 text-[8px] leading-none text-slate-500"
+          className="grid w-7 shrink-0 select-none grid-rows-7 gap-1 text-[9px] leading-none text-muted"
           aria-hidden="true"
         >
           {(["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"] as const).map((d) => (
             <span
               key={d}
-              className="flex min-h-[10px] min-w-0 flex-1 items-center justify-end pr-0.5"
+              className="flex min-h-[20px] min-w-0 flex-1 items-center justify-end pr-0.5"
             >
               {d}
             </span>
@@ -172,13 +172,19 @@ function ContributionBand({
           className="grid min-w-0 flex-1 gap-1"
           style={{
             gridTemplateColumns: colTemplate,
-            gridTemplateRows: "repeat(7, minmax(10px, 1fr))",
+            gridTemplateRows: "repeat(7, minmax(20px, 1fr))",
             gridAutoFlow: "column",
           }}
         >
           {bandCells.map((cell: ContributionCell) => {
             const hasActivity = !cell.isFuture && dayHasActivity(cell.iso);
             const selected = cell.iso === selectedDate;
+            const isToday = cell.iso === todayIso;
+            const background = cell.isFuture
+              ? "rgba(27,15,10,0.08)"
+              : hasActivity
+                ? getActivityDayColor(cell.iso)
+                : "rgba(27,15,10,0.18)";
             return (
               <button
                 key={cell.iso}
@@ -194,14 +200,19 @@ function ContributionBand({
                   if (cell.isFuture) return;
                   onSelectDate(cell.iso);
                 }}
-                className={`h-full min-h-[14px] min-w-0 w-full max-w-full rounded-xs border border-slate-300/90 transition-[box-shadow,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 ${cell.isFuture ? "cursor-default border-slate-200 opacity-40" : "cursor-pointer hover:ring-1 hover:ring-slate-400"} ${selected ? "ring-2 ring-blue-600 ring-offset-1" : ""}`}
+                className={`h-full min-h-[20px] min-w-0 w-full max-w-full rounded-full transition-transform ${
+                  cell.isFuture
+                    ? "cursor-default opacity-50"
+                    : "cursor-pointer hover:scale-115"
+                }`}
                 style={{
-                  backgroundColor: cell.isFuture
-                    ? "var(--activity-off)"
-                    : hasActivity
-                      ? getActivityDayColor(cell.iso)
-                      : "var(--activity-off)",
-                  ...(hasActivity ? { opacity: 0.6 } : {}),
+                  backgroundColor: background,
+                  boxShadow: selected
+                    ? "0 0 0 2px var(--color-ink), 0 0 0 4px var(--color-sun)"
+                    : isToday && !selected
+                      ? "0 0 0 1.5px var(--color-ink)"
+                      : undefined,
+                  opacity: cell.isFuture ? 0.5 : hasActivity ? 0.95 : 0.9,
                 }}
               />
             );
@@ -222,91 +233,67 @@ function ContributionCalendarLegend({
 
   return (
     <div
-      className="flex flex-col border-t ml-6 p-2 border-slate-200 pt-3 [--activity-off:var(--color-slate-200)]"
+      className="ml-6 mt-3 flex flex-col gap-1 border-t border-ink/20 pt-3"
       role="region"
       aria-label="Calendar color legend: net calories versus BMR, and disabled days"
     >
-      <div className="w-full flex gap-1 items-center">
-        <div className="w-full flex gap-1 items-center">
-          {CONTRIBUTION_LEGEND_BANDS.map((band) => (
-            <div
-              key={band.color}
-              title={band.label}
-              className="box-border min-h-[14px] shrink-0 rounded-xs border border-slate-300/90"
-              style={{
-                width: cellW,
-                minHeight: "14px",
-                backgroundColor: band.color,
-                opacity: 0.6,
-              }}
-            />
-          ))}
-        </div>
-        
+      <div className="flex w-full items-center gap-1">
+        {CONTRIBUTION_LEGEND_BANDS.map((band) => (
+          <div
+            key={band.color}
+            title={band.label}
+            className="box-border min-h-[14px] shrink-0 rounded-full"
+            style={{
+              width: cellW,
+              minHeight: "14px",
+              backgroundColor: band.color,
+              border: "1.5px solid var(--color-ink)",
+            }}
+          />
+        ))}
       </div>
-      <div className="w-full flex gap-1 justify-between">
-        <div
-          className="flex justify-between gap-2 text-[10px] text-slate-600 sm:text-xs"
-          style={{ width: bmrStripW }}
-        >
-          <span>Below BMR</span>
-          <span>Above BMR</span>
-        </div>
+      <div
+        className="flex justify-between gap-2 font-display text-[11px] italic text-muted"
+        style={{ width: bmrStripW }}
+      >
+        <span>under BMR</span>
+        <span>over BMR</span>
       </div>
     </div>
   );
 }
 
+/**
+ * Activity heatmap rendered as dots in the Tracker palette. Scope is a
+ * condensed rolling window (last {@link CONDENSED_WEEKS} weeks) so cells stay
+ * chunky and easy to tap on mobile.
+ */
 export default function BurnContributionCalendar({
   todayIso,
-  weeks = CONTRIBUTION_CALENDAR_DEFAULT_WEEKS,
   selectedDate,
   onSelectDate,
   dayHasActivity,
   getActivityDayColor,
 }: Props) {
-  const cells = buildContributionCells(todayIso, weeks);
-  const numWeeks = weeks;
-  const weeksFirstBand = Math.ceil(numWeeks / 2);
-  const weeksSecondBand = numWeeks - weeksFirstBand;
-
-  const totalBands =
-    (weeksFirstBand > 0 ? 1 : 0) + (weeksSecondBand > 0 ? 1 : 0);
-
-  const weekColumnCount = Math.max(weeksFirstBand, weeksSecondBand);
+  const cells = buildContributionCells(todayIso, CONDENSED_WEEKS);
 
   return (
     <div className="space-y-3">
       <div className="flex w-full min-w-0 flex-col gap-3">
-        {weeksSecondBand > 0 ? (
-          <ContributionBand
-            bandIndex={1}
-            bandCount={totalBands}
-            startWeek={weeksFirstBand}
-            weekCount={weeksSecondBand}
-            allCells={cells}
-            selectedDate={selectedDate}
-            onSelectDate={onSelectDate}
-            dayHasActivity={dayHasActivity}
-            getActivityDayColor={getActivityDayColor}
-          />
-        ) : null}
-
-        {weeksFirstBand > 0 ? (
-          <ContributionBand
-            bandIndex={0}
-            bandCount={totalBands}
-            startWeek={0}
-            weekCount={weeksFirstBand}
-            allCells={cells}
-            selectedDate={selectedDate}
-            onSelectDate={onSelectDate}
-            dayHasActivity={dayHasActivity}
-            getActivityDayColor={getActivityDayColor}
-          />
-        ) : null}
+        <ContributionBand
+          bandIndex={0}
+          bandCount={1}
+          startWeek={0}
+          weekCount={CONDENSED_WEEKS}
+          allCells={cells}
+          todayIso={todayIso}
+          selectedDate={selectedDate}
+          onSelectDate={onSelectDate}
+          dayHasActivity={dayHasActivity}
+          getActivityDayColor={getActivityDayColor}
+        />
       </div>
-      <ContributionCalendarLegend weekColumnCount={weekColumnCount} />
+      <ContributionCalendarLegend weekColumnCount={CONDENSED_WEEKS} />
     </div>
   );
 }

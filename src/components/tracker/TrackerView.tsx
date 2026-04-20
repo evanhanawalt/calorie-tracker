@@ -1,17 +1,10 @@
 "use client";
 
-import {
-  useCallback,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useId, useMemo, useRef, useState } from "react";
 import { contributionCalendarDateBounds } from "@/lib/calendarGrid";
 import {
   contributionColorForNetVsBmr,
   DEFAULT_BMR,
-  entryItemLabel,
   formatDateForDisplay,
   getDailyTrackerDerivations,
   getLocalTodayIso,
@@ -26,15 +19,25 @@ import { useTrackerMenuDismiss } from "@/hooks/useTrackerMenuDismiss";
 import { useTrackerQueries } from "@/hooks/useTrackerQueries";
 import type { TrackerStorageMode } from "@/lib/trackerQueryKeys";
 import BurnContributionCalendar from "@/components/BurnContributionCalendar";
+import CircleIcon from "@/components/tracker/CircleIcon";
+import Confetti from "@/components/tracker/Confetti";
+import Sticker from "@/components/tracker/Sticker";
+import StatusStamp from "@/components/StatusStamp";
 import TrackerDialog from "@/components/TrackerDialog";
-import { SvgSquarePen, SvgTrash } from "@/svgs";
+import { SvgPlus, SvgSquarePen, SvgTrash } from "@/svgs";
 import TrackerAppMenu from "./TrackerAppMenu";
-import { STREAM_ORDER, STREAM_UI } from "./trackerUiConfig";
+import { STREAM_UI } from "./trackerUiConfig";
 
 type TrackerViewProps = {
   storageMode: TrackerStorageMode;
 };
 
+/**
+ * Main tracker page (Tracker style). Keeps the same hook wiring — auth,
+ * migration prompts, local/remote queries, entry mutations — but renders
+ * everything on flat sticker cards with chunky chips and the dot-style
+ * heatmap.
+ */
 export default function TrackerView({ storageMode }: TrackerViewProps) {
   const authSession = useAuthSessionQuery();
 
@@ -83,13 +86,16 @@ export default function TrackerView({ storageMode }: TrackerViewProps) {
   } = useMigrationPrompt(storageMode, setStatus);
 
   const {
-    calorieInputs,
-    setCalorieInputs,
+    addTarget,
+    addCaloriesInput,
+    setAddCaloriesInput,
+    openAddDialog,
+    closeAddDialog,
+    confirmAdd,
     editTarget,
     editCaloriesInput,
     setEditCaloriesInput,
     deleteTarget,
-    onLogSubmit,
     openEditDialog,
     closeEditDialog,
     confirmEdit,
@@ -128,13 +134,14 @@ export default function TrackerView({ storageMode }: TrackerViewProps) {
     [dayMap],
   );
 
+  const bmr = settingsQuery.data?.bmrKcal ?? DEFAULT_BMR;
+
   const getActivityDayColor = useCallback(
     (iso: string) => {
       const netConsumed = dayMap.get(iso)?.netConsumed ?? 0;
-      const b = settingsQuery.data?.bmrKcal ?? DEFAULT_BMR;
-      return contributionColorForNetVsBmr(netConsumed, b);
+      return contributionColorForNetVsBmr(netConsumed, bmr);
     },
-    [dayMap, settingsQuery.data],
+    [dayMap, bmr],
   );
 
   const { meals, workouts, consumed, burned, netConsumed } = useMemo(() => {
@@ -148,8 +155,6 @@ export default function TrackerView({ storageMode }: TrackerViewProps) {
     [calendarQuery.data],
   );
 
-  const summaryDate = selectedSummaryDate;
-
   const listByStream: Record<EntryStream, { entries: Entry[]; total: number }> =
     {
       food: { entries: meals, total: consumed },
@@ -159,6 +164,11 @@ export default function TrackerView({ storageMode }: TrackerViewProps) {
   const headerConsumed = summaryQuery.data?.consumed ?? consumed;
   const headerBurned = summaryQuery.data?.burned ?? burned;
   const headerNet = summaryQuery.data?.netConsumed ?? netConsumed;
+  const delta = headerNet - bmr;
+
+  const addTitle = addTarget
+    ? `Add ${STREAM_UI[addTarget.stream].singular}`
+    : "";
 
   const editTitle = editTarget
     ? `Edit ${STREAM_UI[editTarget.stream].singular} calories`
@@ -172,11 +182,11 @@ export default function TrackerView({ storageMode }: TrackerViewProps) {
 
   const deleteDescription =
     deleteTarget && deleteDisplayIndex >= 0
-      ? `Delete ${STREAM_UI[deleteTarget.stream].singular} ${deleteDisplayIndex + 1} (${deleteTarget.entry.calories} cal) on ${formatDateForDisplay(deleteTarget.entry.date)}?`
+      ? `Delete ${STREAM_UI[deleteTarget.stream].singular} ${deleteDisplayIndex + 1} (${deleteTarget.entry.calories} kcal) on ${formatDateForDisplay(deleteTarget.entry.date)}?`
       : "";
 
   const deleteTitle = deleteTarget
-    ? `Delete ${STREAM_UI[deleteTarget.stream].singular}?`
+    ? `Delete this ${STREAM_UI[deleteTarget.stream].singular}?`
     : "";
 
   const sessionUser = authSession.data?.user;
@@ -187,13 +197,22 @@ export default function TrackerView({ storageMode }: TrackerViewProps) {
       ? sessionUser.email
       : undefined;
 
+  const loadingDay = summaryQuery.isPending && !summaryQuery.data;
+  const statusText = loadingDay
+    ? "Loading today…"
+    : derivedSummaryError ||
+      statusMessage ||
+      (calendarQuery.isPending ? "Loading calendar…" : "");
+
   return (
-    <>
+    <div className="relative">
+      <Confetti />
+
       <TrackerDialog
         open={migrationOpen}
         onClose={onMigrationDialogClose}
         title="Save local data to your account?"
-        description="Looks like you've been tracking your calories locally. Now that you have an account, you can transfer this data to your account. This will delete the copy stored in your browser after a successful upload."
+        description="Looks like you've been tracking your calories locally. Now that you have an account, you can transfer this data. We'll delete the copy stored in your browser after a successful upload."
         primaryLabel="Transfer data"
         primaryDisabled={migrationBusy}
         onPrimary={() => void migrateLocalToCloud(false)}
@@ -205,7 +224,7 @@ export default function TrackerView({ storageMode }: TrackerViewProps) {
         open={migrationReplaceOpen}
         onClose={() => setMigrationReplaceOpen(false)}
         title="Replace account data?"
-        description="Your account already has meals or workouts. Uploading will replace all of that data with your local browser data."
+        description="Your account already has meals or workouts. Uploading will replace all of that data with the entries in your browser."
         primaryLabel="Replace and upload"
         primaryVariant="danger"
         primaryDisabled={migrationBusy}
@@ -215,6 +234,39 @@ export default function TrackerView({ storageMode }: TrackerViewProps) {
       />
 
       <TrackerDialog
+        open={!!addTarget}
+        onClose={closeAddDialog}
+        title={addTitle}
+        primaryLabel="Add"
+        onPrimary={confirmAdd}
+        primaryDisabled={!addTarget}
+      >
+        <label className="block">
+          <span className="mb-2 block text-xs uppercase tracking-label text-muted">
+            {addTarget
+              ? STREAM_UI[addTarget.stream].fieldLabel
+              : "Calories"}
+          </span>
+          <input
+            type="number"
+            min={0}
+            step={1}
+            autoFocus
+            placeholder="0"
+            className="tracker-input text-3xl"
+            value={addCaloriesInput}
+            onChange={(ev) => setAddCaloriesInput(ev.target.value)}
+            onKeyDown={(ev) => {
+              if (ev.key === "Enter") {
+                ev.preventDefault();
+                confirmAdd();
+              }
+            }}
+          />
+        </label>
+      </TrackerDialog>
+
+      <TrackerDialog
         open={!!editTarget}
         onClose={closeEditDialog}
         title={editTitle}
@@ -222,8 +274,8 @@ export default function TrackerView({ storageMode }: TrackerViewProps) {
         onPrimary={confirmEdit}
         primaryDisabled={!editTarget}
       >
-        <label className="block text-sm">
-          <span className="mb-1 block font-medium text-slate-800">
+        <label className="block">
+          <span className="mb-2 block text-xs uppercase tracking-label text-muted">
             Calories
           </span>
           <input
@@ -231,7 +283,7 @@ export default function TrackerView({ storageMode }: TrackerViewProps) {
             min={0}
             step={1}
             autoFocus
-            className="w-full rounded-md border border-slate-300 px-3 py-2"
+            className="tracker-input text-3xl"
             value={editCaloriesInput}
             onChange={(ev) => setEditCaloriesInput(ev.target.value)}
             onKeyDown={(ev) => {
@@ -269,159 +321,265 @@ export default function TrackerView({ storageMode }: TrackerViewProps) {
         onSignOutError={(msg) => setStatus(msg, true)}
       />
 
-      <main className="mx-auto max-w-4xl space-y-4 p-4 md:p-8">
-        <p
+      <main
+        id="main"
+        className="relative z-10 mx-auto max-w-5xl px-4 pb-4 pt-3 md:px-8 md:pb-8 md:pt-4"
+      >
+        <StatusStamp
           id="status"
-          role="status"
-          aria-live="polite"
-          className={`text-sm m-0 leading-5 italic ${
-            statusIsError || derivedSummaryError
-              ? "text-red-600"
-              : "text-slate-600"
-          }`}
-        >
-          {summaryQuery.isPending && !summaryQuery.data
-            ? "Loading day…"
-            : derivedSummaryError ||
-              statusMessage ||
-              (calendarQuery.isPending ? "Loading calendar…" : "")}
-          &nbsp;
-        </p>
+          message={statusText}
+          isError={statusIsError || !!derivedSummaryError}
+        />
 
-        <section className="grid gap-4 rounded-xl bg-white p-4 shadow-sm md:grid-cols-2">
-          <div className="md:col-span-2">
-            <div className="flex justify-between items-center">
-              <h2 className="mb-3 text-lg font-semibold">
-                {formatDateForDisplay(summaryDate)}
+        <div className="mt-1 space-y-6">
+          <HeroSticker
+            dateLabel={formatDateForDisplay(selectedSummaryDate)}
+            isToday={selectedSummaryDate === todayIso}
+            consumed={headerConsumed}
+            burned={headerBurned}
+            net={headerNet}
+            bmr={bmr}
+            delta={delta}
+            loading={loadingDay}
+          />
+
+          <Sticker
+            delay={160}
+            className="bg-lime px-4 py-6 md:px-7"
+          >
+            <div className="flex items-baseline justify-between">
+              <h2 className="font-display text-display-lg leading-none">
+                History
               </h2>
-              <p className="text-sm text-slate-700">
-                Consumed: {headerConsumed} | Burned: {headerBurned} | Net:{" "}
-                {headerNet}
-              </p>
+              <span className="text-sm text-muted">Select a day</span>
             </div>
-            <BurnContributionCalendar
-              todayIso={todayIso}
-              selectedDate={selectedSummaryDate}
-              onSelectDate={setSelectedSummaryDate}
-              dayHasActivity={dayHasActivity}
-              getActivityDayColor={getActivityDayColor}
+            <div className="mt-4">
+              <BurnContributionCalendar
+                todayIso={todayIso}
+                selectedDate={selectedSummaryDate}
+                onSelectDate={setSelectedSummaryDate}
+                dayHasActivity={dayHasActivity}
+                getActivityDayColor={getActivityDayColor}
+              />
+            </div>
+            {!hasAnyCalendarActivity ? (
+              <p className="mt-4 text-center text-muted">
+                No entries yet. Add a meal or workout below to get started.
+              </p>
+            ) : null}
+          </Sticker>
+
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <LogPanel
+              stream="food"
+              delay={240}
+              entries={listByStream.food.entries}
+              total={listByStream.food.total}
+              onAdd={() => openAddDialog("food")}
+              onEdit={(entry) => openEditDialog("food", entry)}
+              onDelete={(entry) => openDeleteDialog("food", entry)}
+            />
+            <LogPanel
+              stream="workout"
+              delay={320}
+              entries={listByStream.workout.entries}
+              total={listByStream.workout.total}
+              onAdd={() => openAddDialog("workout")}
+              onEdit={(entry) => openEditDialog("workout", entry)}
+              onDelete={(entry) => openDeleteDialog("workout", entry)}
             />
           </div>
-          {STREAM_ORDER.map((stream) => {
-            const ui = STREAM_UI[stream];
-            return (
-              <div key={stream}>
-                <h2 className="mb-3 text-lg font-semibold">
-                  {ui.logSectionTitle}
-                </h2>
-                <form
-                  id={ui.formId}
-                  className="space-y-3"
-                  onSubmit={(e) => onLogSubmit(stream, e)}
-                >
-                  <label className="block text-sm">
-                    <span className="mb-1 block font-medium">
-                      {ui.fieldLabel}
-                    </span>
-                    <input
-                      id={ui.inputId}
-                      name="calories"
-                      type="number"
-                      min={0}
-                      step={1}
-                      required
-                      className="w-full rounded-md border border-slate-300 px-3 py-2"
-                      value={calorieInputs[stream]}
-                      onChange={(ev) =>
-                        setCalorieInputs((prev) => ({
-                          ...prev,
-                          [stream]: ev.target.value,
-                        }))
-                      }
-                    />
-                  </label>
-                  <button type="submit" className={ui.submitButtonClass}>
-                    {ui.submitLabel}
-                  </button>
-                </form>
-              </div>
-            );
-          })}
-          <div className="md:col-span-2">
-            <div id="daily-summary" className="space-y-4">
-              {!hasAnyCalendarActivity ? (
-                <p className="text-sm text-slate-600">
-                  No entries yet. Add a meal or workout to get started.
-                </p>
-              ) : null}
-              <article className="rounded-lg border border-slate-200 p-4">
-                <div className="grid gap-3 text-sm md:grid-cols-2">
-                  {STREAM_ORDER.map((stream) => {
-                    const ui = STREAM_UI[stream];
-                    const { entries, total } = listByStream[stream];
-                    return (
-                      <div key={stream}>
-                        <div className="flex justify-between items-center">
-                          <h4 className="font-medium">{ui.listHeading}</h4>
-                          <p className="text-sm text-slate-700">
-                            Total: {total}
-                          </p>
-                        </div>
-                        <ul className="mt-1 list-inside list-disc text-slate-700">
-                          {entries.length ? (
-                            entries.map((entry, idx) => (
-                              <li
-                                key={entry.id}
-                                className="flex items-center gap-2"
-                              >
-                                <span className="min-w-0 flex-1 leading-5">
-                                  {entryItemLabel(stream, idx + 1, entry)}
-                                </span>
-                                <span className="inline-flex shrink-0 items-center gap-1">
-                                  <button
-                                    type="button"
-                                    title="Edit"
-                                    aria-label={`Edit ${ui.singular} ${idx + 1}`}
-                                    className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
-                                    onClick={() =>
-                                      openEditDialog(stream, entry)
-                                    }
-                                  >
-                                    <SvgSquarePen
-                                      className="size-4"
-                                      aria-hidden="true"
-                                    />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    title="Delete"
-                                    aria-label={`Delete ${ui.singular} ${idx + 1}`}
-                                    className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-600 hover:bg-red-50 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200"
-                                    onClick={() =>
-                                      openDeleteDialog(stream, entry)
-                                    }
-                                  >
-                                    <SvgTrash
-                                      className="size-4"
-                                      aria-hidden="true"
-                                    />
-                                  </button>
-                                </span>
-                              </li>
-                            ))
-                          ) : (
-                            <li>{ui.listEmptyText}</li>
-                          )}
-                        </ul>
-                      </div>
-                    );
-                  })}
-                </div>
-              </article>
-            </div>
-          </div>
-        </section>
+        </div>
       </main>
-    </>
+    </div>
+  );
+}
+
+/* ---------- Pieces ---------- */
+
+function HeroSticker({
+  dateLabel,
+  isToday,
+  consumed,
+  burned,
+  net,
+  bmr,
+  delta,
+  loading,
+}: {
+  dateLabel: string;
+  isToday: boolean;
+  consumed: number;
+  burned: number;
+  net: number;
+  bmr: number;
+  delta: number;
+  loading: boolean;
+}) {
+  const over = delta > 0;
+  return (
+    <Sticker
+      delay={80}
+      className="relative bg-cream px-6 py-8 md:px-10 md:py-10"
+    >
+      <CircleIcon
+        as="span"
+        size="lg"
+        className={`absolute -right-3 -top-3 font-display text-center leading-tight shadow-sticker-sm ${over ? "bg-hot text-cream" : "bg-lime text-ink"}`}
+        aria-hidden
+      >
+        {over ? "Over" : "Under"}
+      </CircleIcon>
+      <p className="text-xs uppercase tracking-eyebrow text-hot">
+        {isToday ? `Today · ${dateLabel}` : dateLabel}
+      </p>
+      <div className="mt-2 flex flex-wrap items-end gap-6">
+        <div>
+          <p className="text-xs uppercase tracking-label text-muted">
+            Net kcal
+          </p>
+          <p
+            className={`font-display text-display-hero-lg leading-[0.85] tabular-nums ${over ? "text-hot" : "text-ink"}`}
+          >
+            {loading ? "—" : net.toLocaleString()}
+          </p>
+        </div>
+        <div className="flex flex-col gap-2">
+          <Chip className="bg-ocean" label={`Consumed ${consumed}`} />
+          <Chip className="bg-hot text-cream" label={`Burned ${burned}`} />
+          <Chip
+            className={over ? "bg-sun" : "bg-lime"}
+            label={`${over ? "+" : ""}${delta} vs BMR ${bmr}`}
+          />
+        </div>
+      </div>
+    </Sticker>
+  );
+}
+
+function Chip({ className = "", label }: { className?: string; label: string }) {
+  return <span className={`tracker-chip ${className}`.trim()}>{label}</span>;
+}
+
+type LogAccent = {
+  /** Tailwind classes for accent backgrounds (chip, add button, index badge). */
+  bg: string;
+  /** Tailwind color class for the panel title. */
+  text: string;
+};
+
+const FOOD_ACCENT: LogAccent = {
+  bg: "bg-ocean text-ink",
+  text: "text-ocean",
+};
+const WORKOUT_ACCENT: LogAccent = {
+  bg: "bg-hot text-cream",
+  text: "text-hot",
+};
+
+type LogPanelProps = {
+  stream: EntryStream;
+  delay: number;
+  entries: Entry[];
+  total: number;
+  onAdd: () => void;
+  onEdit: (entry: Entry) => void;
+  onDelete: (entry: Entry) => void;
+};
+
+function LogPanel({
+  stream,
+  delay,
+  entries,
+  total,
+  onAdd,
+  onEdit,
+  onDelete,
+}: LogPanelProps) {
+  const ui = STREAM_UI[stream];
+  const isFood = stream === "food";
+  const accent = isFood ? FOOD_ACCENT : WORKOUT_ACCENT;
+  const title = isFood ? "Meals" : "Workouts";
+  const subtitle = isFood ? "Calories consumed today" : "Calories burned today";
+
+  return (
+    <Sticker delay={delay} className="relative bg-cream px-5 py-6 md:px-7">
+      <span
+        className={`tracker-chip absolute -left-3 -top-3 ${accent.bg}`}
+        aria-hidden
+      >
+        Total {total}
+      </span>
+
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className={`font-display text-display-xl leading-none ${accent.text}`}>
+            {title}
+          </h3>
+          <p className="text-sm text-muted">{subtitle}</p>
+        </div>
+        <CircleIcon
+          size="md"
+          onClick={onAdd}
+          title={`Add ${ui.singular}`}
+          aria-label={`Add ${ui.singular}`}
+          className={`tracker-sticker-btn shrink-0 shadow-sticker-sm transition-transform hover:scale-105 ${accent.bg}`}
+        >
+          <SvgPlus className="size-6" aria-hidden="true" />
+        </CircleIcon>
+      </div>
+
+      <ul className="mt-5 space-y-2">
+        {entries.length === 0 ? (
+          <li>
+            <button
+              type="button"
+              onClick={onAdd}
+              aria-label={ui.listEmptyText}
+              className="block w-full cursor-pointer rounded-2xl border-2 border-dashed border-ink/25 px-4 py-3 text-center font-display italic text-muted transition-colors hover:border-ink hover:text-ink"
+            >
+              {ui.listEmptyText}
+            </button>
+          </li>
+        ) : (
+          entries.map((entry, idx) => (
+            <li
+              key={entry.id}
+              className="group tracker-sticker-sm flex items-center gap-3 bg-paper px-3 py-2"
+            >
+              <CircleIcon as="span" size="xs" className={accent.bg}>
+                {idx + 1}
+              </CircleIcon>
+              <span className="font-display text-display-sm tabular-nums">
+                {entry.calories.toLocaleString()}
+                <span className="ml-1 font-body text-sm not-italic text-muted">
+                  kcal
+                </span>
+              </span>
+              <span className="ml-auto flex gap-2 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                <CircleIcon
+                  size="sm"
+                  title="Edit"
+                  aria-label={`Edit ${ui.singular} ${idx + 1}`}
+                  onClick={() => onEdit(entry)}
+                  className="bg-sun"
+                >
+                  <SvgSquarePen className="size-4" aria-hidden="true" />
+                </CircleIcon>
+                <CircleIcon
+                  size="sm"
+                  title="Delete"
+                  aria-label={`Delete ${ui.singular} ${idx + 1}`}
+                  onClick={() => onDelete(entry)}
+                  className="bg-hot text-cream"
+                >
+                  <SvgTrash className="size-4" aria-hidden="true" />
+                </CircleIcon>
+              </span>
+            </li>
+          ))
+        )}
+      </ul>
+    </Sticker>
   );
 }

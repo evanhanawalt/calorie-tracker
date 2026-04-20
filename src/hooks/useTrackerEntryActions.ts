@@ -25,9 +25,10 @@ export function useTrackerEntryActions({
   trackerMut,
   setStatus,
 }: Params) {
-  const [calorieInputs, setCalorieInputs] = useState<
-    Record<EntryStream, string>
-  >({ food: "", workout: "" });
+  const [addTarget, setAddTarget] = useState<null | { stream: EntryStream }>(
+    null,
+  );
+  const [addCaloriesInput, setAddCaloriesInput] = useState("");
   const [editTarget, setEditTarget] = useState<null | {
     stream: EntryStream;
     entry: Entry;
@@ -45,15 +46,25 @@ export function useTrackerEntryActions({
     [trackerMut],
   );
 
-  function onLogSubmit(stream: EntryStream, e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  function openAddDialog(stream: EntryStream) {
+    setAddTarget({ stream });
+    setAddCaloriesInput("");
+  }
+
+  function closeAddDialog() {
+    setAddTarget(null);
+  }
+
+  function confirmAdd() {
+    if (!addTarget) return;
+    const { stream } = addTarget;
     const ui = STREAM_UI[stream];
     const date = selectedSummaryDate;
-    const calories = parseNonNegativeCalories(Number(calorieInputs[stream]));
     if (!isLogDateAllowed(date, todayIso)) {
       setStatus("Pick a day on the calendar (not a future date).", true);
       return;
     }
+    const calories = parseNonNegativeCalories(Number(addCaloriesInput));
     if (calories === null) {
       setStatus(ui.invalidLogCalories, true);
       return;
@@ -66,8 +77,8 @@ export function useTrackerEntryActions({
           date,
           calories,
         });
-        setCalorieInputs((prev) => ({ ...prev, [stream]: "" }));
         setStatus(ui.addedMessage);
+        closeAddDialog();
       } catch (err) {
         setStatus(
           err instanceof Error ? err.message : "Could not add entry.",
@@ -142,13 +153,16 @@ export function useTrackerEntryActions({
   }
 
   return {
-    calorieInputs,
-    setCalorieInputs,
+    addTarget,
+    addCaloriesInput,
+    setAddCaloriesInput,
+    openAddDialog,
+    closeAddDialog,
+    confirmAdd,
     editTarget,
     editCaloriesInput,
     setEditCaloriesInput,
     deleteTarget,
-    onLogSubmit,
     openEditDialog,
     closeEditDialog,
     confirmEdit,

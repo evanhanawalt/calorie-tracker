@@ -8,24 +8,6 @@ import {
   type WorkoutEntryRow,
 } from "./schema";
 
-export async function listAllMealsForUser(userId: string) {
-  const db = getDb();
-  return db
-    .select()
-    .from(mealEntries)
-    .where(eq(mealEntries.userId, userId))
-    .orderBy(asc(mealEntries.entryDate), asc(mealEntries.displayOrder));
-}
-
-export async function listAllWorkoutsForUser(userId: string) {
-  const db = getDb();
-  return db
-    .select()
-    .from(workoutEntries)
-    .where(eq(workoutEntries.userId, userId))
-    .orderBy(asc(workoutEntries.entryDate), asc(workoutEntries.displayOrder));
-}
-
 export async function countTrackerRowsForUser(userId: string): Promise<{
   meals: number;
   workouts: number;

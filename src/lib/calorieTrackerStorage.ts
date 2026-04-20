@@ -10,8 +10,6 @@ export const DEFAULT_BMR = 2000;
 
 export type Entry = TrackerEntryWire;
 
-export { normalizeStoredTrackerEntries };
-
 /** Today's calendar date in the user's local timezone (yyyy-mm-dd). */
 export function getLocalTodayIso(): string {
   const now = new Date();
@@ -21,7 +19,7 @@ export function getLocalTodayIso(): string {
   return `${y}-${m}-${d}`;
 }
 
-export function safeParseArray(jsonValue: string | null): unknown[] {
+function safeParseArray(jsonValue: string | null): unknown[] {
   try {
     const parsed = JSON.parse(jsonValue || "[]");
     return Array.isArray(parsed) ? parsed : [];
@@ -42,7 +40,7 @@ export function loadWorkoutEntries(): Entry[] {
   );
 }
 
-export function saveEntries(food: Entry[], workouts: Entry[]): void {
+function saveEntries(food: Entry[], workouts: Entry[]): void {
   localStorage.setItem(FOOD_STORAGE_KEY, JSON.stringify(food));
   localStorage.setItem(WORKOUT_STORAGE_KEY, JSON.stringify(workouts));
 }
@@ -71,17 +69,6 @@ export function clearAllTrackerLocalStorage(): void {
   localStorage.removeItem(FOOD_STORAGE_KEY);
   localStorage.removeItem(WORKOUT_STORAGE_KEY);
   localStorage.removeItem(BMR_STORAGE_KEY);
-}
-
-/** Net intake for a day: meals minus workouts (same as summary “Net”). */
-export function netCaloriesForDate(
-  foodByDate: Record<string, Entry[]>,
-  workoutsByDate: Record<string, Entry[]>,
-  iso: string,
-): number {
-  const consumed = sumCalories(foodByDate[iso] ?? []);
-  const burned = sumCalories(workoutsByDate[iso] ?? []);
-  return consumed - burned;
 }
 
 /**
@@ -266,18 +253,6 @@ export function getDailyTrackerDerivations(
   };
 }
 
-export function entryItemLabel(
-  type: "food" | "workout",
-  /** 1-based label index for the day after sorting by `displayOrder`. */
-  displayIndex: number,
-  entry: Pick<Entry, "calories">,
-): string {
-  if (type === "food") {
-    return `Meal ${displayIndex}: ${entry.calories} cal`;
-  }
-  return `Workout ${displayIndex}: ${entry.calories} cal`;
-}
-
 /** @param isoDate yyyy-mm-dd */
 export function formatDateForDisplay(isoDate: string): string {
   const parts = isoDate.split("-").map(Number);
@@ -286,13 +261,9 @@ export function formatDateForDisplay(isoDate: string): string {
   }
   const [y, m, d] = parts;
   const local = new Date(y, m - 1, d);
-  let label = local.toLocaleDateString("en-US", {
+  return local.toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
     year: "numeric",
   });
-  if (isoDate === getLocalTodayIso()) {
-    label += " (today)";
-  }
-  return label;
 }
