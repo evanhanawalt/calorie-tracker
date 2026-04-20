@@ -447,26 +447,19 @@ function HeroSticker({
       <p className="text-xs uppercase tracking-eyebrow text-hot">
         {isToday ? `Today · ${dateLabel}` : dateLabel}
       </p>
-      <div className="mt-2 flex flex-wrap items-start gap-x-6 gap-y-4">
-        <div className="min-w-0 shrink-0 self-start">
+      <div className="mt-2 flex flex-wrap justify-between gap-x-6 gap-y-4">
+        <div className="flex w-max max-w-full shrink-0 flex-col">
           <p className="text-xs uppercase tracking-label text-muted leading-normal">
             Net kcal
           </p>
-          <p
-            className={
-              "font-display text-display-hero-lg leading-[0.85] tabular-nums text-ink"
-            }
-          >
-            <span className="inline-block min-w-[9ch]">{loading ? "—" : net.toLocaleString()}</span>
+          <p className="font-display text-display-hero-lg leading-[0.85] tabular-nums text-ink">
+            {loading ? "—" : net.toLocaleString()}
           </p>
         </div>
-        <div className="ml-auto flex min-w-0 flex-col items-end gap-2">
-          <Chip className="bg-ocean" label={`Consumed ${consumed}`} />
-          <Chip className="bg-hot text-cream" label={`Burned ${burned}`} />
-          <Chip
-            className={"bg-sun"}
-            label={`${over ? "+" : ""}${delta} vs BMR ${bmr}`}
-          />
+        <div className="flex flex-col items-end gap-2 self-stretch">
+          <Chip className="bg-ocean w-full" label={`Consumed ${consumed}`} />
+          <Chip className="bg-hot text-cream w-full" label={`Burned ${burned}`} />
+          <Chip className="bg-sun w-full" label={`${over ? "+" : ""}${delta} vs BMR ${bmr}`} />
         </div>
       </div>
     </Sticker>
@@ -572,13 +565,13 @@ function LogPanel({
                   kcal
                 </span>
               </span>
-              <span className="ml-auto flex gap-2 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+              <span className="ml-auto flex gap-2 ">
                 <CircleIcon
                   size="sm"
                   title="Edit"
                   aria-label={`Edit ${ui.singular} ${idx + 1}`}
                   onClick={() => onEdit(entry)}
-                  className="bg-sun"
+                  className="bg-sun hover:scale-105"
                 >
                   <SvgSquarePen className="size-4" aria-hidden="true" />
                 </CircleIcon>
@@ -587,7 +580,7 @@ function LogPanel({
                   title="Delete"
                   aria-label={`Delete ${ui.singular} ${idx + 1}`}
                   onClick={() => onDelete(entry)}
-                  className="bg-hot text-cream"
+                  className="bg-hot text-cream hover:scale-105"
                 >
                   <SvgTrash className="size-4" aria-hidden="true" />
                 </CircleIcon>
