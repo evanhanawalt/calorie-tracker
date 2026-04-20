@@ -96,14 +96,6 @@ export const apiErrorBodySchema = z.object({
   error: z.string(),
 });
 
-export const mealsListResponseSchema = z.object({
-  meals: z.array(trackerEntryWireSchema),
-});
-
-export const workoutsListResponseSchema = z.object({
-  workouts: z.array(trackerEntryWireSchema),
-});
-
 export const mealMutationResponseSchema = z.object({
   meal: trackerEntryWireSchema,
 });

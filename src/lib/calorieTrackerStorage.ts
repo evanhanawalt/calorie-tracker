@@ -10,8 +10,6 @@ export const DEFAULT_BMR = 2000;
 
 export type Entry = TrackerEntryWire;
 
-export { normalizeStoredTrackerEntries };
-
 /** Today's calendar date in the user's local timezone (yyyy-mm-dd). */
 export function getLocalTodayIso(): string {
   const now = new Date();
@@ -21,7 +19,7 @@ export function getLocalTodayIso(): string {
   return `${y}-${m}-${d}`;
 }
 
-export function safeParseArray(jsonValue: string | null): unknown[] {
+function safeParseArray(jsonValue: string | null): unknown[] {
   try {
     const parsed = JSON.parse(jsonValue || "[]");
     return Array.isArray(parsed) ? parsed : [];
@@ -42,7 +40,7 @@ export function loadWorkoutEntries(): Entry[] {
   );
 }
 
-export function saveEntries(food: Entry[], workouts: Entry[]): void {
+function saveEntries(food: Entry[], workouts: Entry[]): void {
   localStorage.setItem(FOOD_STORAGE_KEY, JSON.stringify(food));
   localStorage.setItem(WORKOUT_STORAGE_KEY, JSON.stringify(workouts));
 }
@@ -73,46 +71,106 @@ export function clearAllTrackerLocalStorage(): void {
   localStorage.removeItem(BMR_STORAGE_KEY);
 }
 
-/** Net intake for a day: meals minus workouts (same as summary “Net”). */
-export function netCaloriesForDate(
-  foodByDate: Record<string, Entry[]>,
-  workoutsByDate: Record<string, Entry[]>,
-  iso: string,
-): number {
-  const consumed = sumCalories(foodByDate[iso] ?? []);
-  const burned = sumCalories(workoutsByDate[iso] ?? []);
-  return consumed - burned;
+/** Three-way bucket for the net-vs-BMR label (Under / On Target / Over). */
+export type NetVsBmrState = "under" | "onTarget" | "over";
+
+/**
+ * Descriptor for one horizontal band of the net-vs-BMR palette. Fields
+ * cover every visual need across the app (heatmap cell, hero badge,
+ * legend swatches/gradient) so callers never have to re-derive the band
+ * from the delta themselves.
+ */
+export type NetVsBmrBand = {
+  /** Three-way coarse state the band belongs to. */
+  readonly state: NetVsBmrState;
+  /** Fill color for heatmap cells and the hero badge background. */
+  readonly color: string;
+  /** Foreground color that stays legible on top of `color`. */
+  readonly textColor: string;
+  /** Human-readable description for tooltips / screen readers. */
+  readonly label: string;
+  /**
+   * Inclusive lower bound of `(netConsumed - bmr)` that this band
+   * covers. The band applies whenever `delta >= minDelta` and no
+   * higher-ranked band already matched. Use `-Infinity` for the
+   * catch-all bottom band.
+   */
+  readonly minDelta: number;
+};
+
+/**
+ * All five net-vs-BMR bands, ordered from most-over to most-under.
+ *
+ * Boundaries use `>=` consistently: at exactly +100 the user is
+ * `"over"` (orange), at exactly -100 they are `"onTarget"` (yellow), at
+ * exactly -200 they are still `"under"` (lime-green), etc. Keep this
+ * list as the single source of truth for palette, thresholds, and
+ * labels — the heatmap, hero badge, legend gradient and legend
+ * tooltips all derive from it.
+ */
+export const NET_VS_BMR_BANDS: readonly NetVsBmrBand[] = [
+  {
+    state: "over",
+    color: "#e51f1f",
+    textColor: "var(--color-cream)",
+    label: "Over 200 kcal above BMR",
+    minDelta: 200,
+  },
+  {
+    state: "over",
+    color: "#f2a134",
+    textColor: "var(--color-ink)",
+    label: "100–200 kcal above BMR",
+    minDelta: 100,
+  },
+  {
+    state: "onTarget",
+    color: "#f7e379",
+    textColor: "var(--color-ink)",
+    label: "Within ±100 kcal of BMR",
+    minDelta: -100,
+  },
+  {
+    state: "under",
+    color: "#bbdb44",
+    textColor: "var(--color-ink)",
+    label: "100–200 kcal below BMR",
+    minDelta: -200,
+  },
+  {
+    state: "under",
+    color: "#44ce1b",
+    textColor: "var(--color-ink)",
+    label: "Over 200 kcal below BMR (net intake)",
+    minDelta: -Infinity,
+  },
+] as const;
+
+/**
+ * Classify `(netConsumed - bmrKcal)` into its palette band. The band
+ * exposes everything the UI needs: `state` ("under" / "onTarget" /
+ * "over"), `color` (cell + badge background), `textColor` (legible
+ * foreground), and `label` (tooltip/aria text).
+ */
+export function netVsBmrBand(
+  netConsumed: number,
+  bmrKcal: number,
+): NetVsBmrBand {
+  const delta = netConsumed - bmrKcal;
+  for (const band of NET_VS_BMR_BANDS) {
+    if (delta >= band.minDelta) return band;
+  }
+  return NET_VS_BMR_BANDS[NET_VS_BMR_BANDS.length - 1];
 }
 
 /**
- * Fill color for a day with activity, from net calories vs BMR.
- * Green when net is under BMR → red when over BMR (five bands).
+ * Legend swatches rendered under the heatmap, ordered from
+ * most-under-BMR on the left to most-over-BMR on the right so the
+ * gradient reads naturally.
  */
-export function contributionColorForNetVsBmr(
-  netConsumed: number,
-  bmr: number,
-): string {
-  const d = netConsumed - bmr;
-  if (d > 200) return "#e51f1f";
-  if (d > 100) return "#f2a134";
-  if (d >= -100) return "#f7e379";
-  if (d >= -200) return "#bbdb44";
-  return "#44ce1b";
-}
-
-export type ContributionLegendBand = {
-  readonly color: string;
-  readonly label: string;
-};
-
-/** Legend order: most under BMR (green) → most over BMR (red). Matches `contributionColorForNetVsBmr`. */
-export const CONTRIBUTION_LEGEND_BANDS: readonly ContributionLegendBand[] = [
-  { color: "#44ce1b", label: "Over 200 kcal below BMR (net intake)" },
-  { color: "#bbdb44", label: "100–200 kcal below BMR" },
-  { color: "#f7e379", label: "Within ±100 kcal of BMR" },
-  { color: "#f2a134", label: "100–200 kcal above BMR" },
-  { color: "#e51f1f", label: "Over 200 kcal above BMR" },
-] as const;
+export const CONTRIBUTION_LEGEND_BANDS: readonly NetVsBmrBand[] = [
+  ...NET_VS_BMR_BANDS,
+].reverse();
 
 export type TrackerState = {
   foodEntries: Entry[];
@@ -266,18 +324,6 @@ export function getDailyTrackerDerivations(
   };
 }
 
-export function entryItemLabel(
-  type: "food" | "workout",
-  /** 1-based label index for the day after sorting by `displayOrder`. */
-  displayIndex: number,
-  entry: Pick<Entry, "calories">,
-): string {
-  if (type === "food") {
-    return `Meal ${displayIndex}: ${entry.calories} cal`;
-  }
-  return `Workout ${displayIndex}: ${entry.calories} cal`;
-}
-
 /** @param isoDate yyyy-mm-dd */
 export function formatDateForDisplay(isoDate: string): string {
   const parts = isoDate.split("-").map(Number);
@@ -286,13 +332,9 @@ export function formatDateForDisplay(isoDate: string): string {
   }
   const [y, m, d] = parts;
   const local = new Date(y, m - 1, d);
-  let label = local.toLocaleDateString("en-US", {
+  return local.toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
     year: "numeric",
   });
-  if (isoDate === getLocalTodayIso()) {
-    label += " (today)";
-  }
-  return label;
 }

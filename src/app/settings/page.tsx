@@ -4,6 +4,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import Brand from "@/components/tracker/Brand";
+import Confetti from "@/components/tracker/Confetti";
+import Sticker from "@/components/tracker/Sticker";
+import StatusStamp from "@/components/StatusStamp";
 import TrackerDialog from "@/components/TrackerDialog";
 import { startAuthSignOut } from "@/lib/authSignOutClient";
 import {
@@ -19,6 +23,11 @@ import {
   type TrackerStorageMode,
 } from "@/lib/trackerQueryKeys";
 
+/**
+ * Settings page in Tracker style: BMR on a lime sticker, danger-zone on a
+ * hot-pink sticker. Back link becomes a sticker-chip; save button a sun-
+ * yellow primary action.
+ */
 export default function SettingsPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -73,7 +82,9 @@ export default function SettingsPage() {
         headers: { Accept: "application/json" },
       });
       if (!res.ok) {
-        const err = (await res.json().catch(() => null)) as { error?: string } | null;
+        const err = (await res.json().catch(() => null)) as {
+          error?: string;
+        } | null;
         throw new Error(err?.error ?? "Could not delete account.");
       }
       void queryClient.invalidateQueries({ queryKey: authQueryKeys.session });
@@ -86,9 +97,7 @@ export default function SettingsPage() {
       await startAuthSignOut();
       router.push("/");
     } catch (e) {
-      setStatus(
-        e instanceof Error ? e.message : "Could not delete account.",
-      );
+      setStatus(e instanceof Error ? e.message : "Could not delete account.");
       setStatusErr(true);
     } finally {
       setDeleteBusy(false);
@@ -98,91 +107,98 @@ export default function SettingsPage() {
 
   if (session.isPending) {
     return (
-      <div className="mx-auto max-w-lg p-8 text-center text-slate-600">
-        Loading…
+      <div className="relative min-h-dvh">
+        <Confetti />
+        <div className="relative z-10 mx-auto max-w-lg p-8 text-center font-display text-muted">
+          Loading…
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-lg p-4 md:p-8">
-      <p className="mb-6">
-        <Link href="/" className="text-sm text-blue-600 hover:underline">
-          ← Back to tracker
-        </Link>
-      </p>
-      <h1 className="text-2xl font-bold text-slate-900">Settings</h1>
-      <p className="mt-1 text-sm text-slate-600">
-        {mode === "remote"
-          ? "Basal metabolic rate is stored in your account."
-          : "Basal metabolic rate is stored on this device only."}
-      </p>
+    <div className="relative min-h-dvh">
+      <Confetti />
+      <div className="relative z-10 mx-auto max-w-lg space-y-6 p-4 md:p-10">
+        <div className="flex items-center justify-between gap-4">
+          <Brand />
+          <Link href="/" className="tracker-btn bg-lime px-3 py-1.5 text-sm">
+            ← Back to tracker
+          </Link>
+        </div>
 
-      <section className="mt-8 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">
-          Daily BMR (kcal)
-        </h2>
-        <p className="mt-1 text-sm text-slate-600">
-          Used for calendar colors (net intake vs this value).
-        </p>
-        <label className="mt-4 block text-sm">
-          <span className="mb-1 block font-medium text-slate-800">BMR</span>
-          <input
-            type="number"
-            min={500}
-            max={20000}
-            step={1}
-            className="w-full rounded-md border border-slate-300 px-3 py-2"
-            value={bmrInput}
-            onChange={(ev) => setBmrInput(ev.target.value)}
-          />
-        </label>
-        <button
-          type="button"
-          className="mt-4 rounded-md bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-900"
-          onClick={saveBmr}
-          disabled={patchSettings.isPending}
-        >
-          Save BMR
-        </button>
-      </section>
+        <Sticker delay={80} className="bg-cream px-6 py-7 md:px-8">
+          <h1 className="font-display text-display-hero-sm leading-none">
+            Settings
+          </h1>
 
-      {session.data?.user ? (
-        <section className="mt-8 rounded-xl border border-red-200 bg-red-50/80 p-5">
-          <h2 className="text-lg font-semibold text-red-900">Danger zone</h2>
-          <p className="mt-1 text-sm text-red-800">
-            Permanently delete your account and all meals, workouts, and
-            settings. This cannot be undone.
+          <h2 className="mt-6 font-display text-display-md leading-none">
+            Basal metabolic rate
+          </h2>
+          <p className="mt-1 text-sm text-muted">
+            Used for calendar colors (net intake vs this value).
           </p>
+          <label className="mt-4 block">
+            <span className="mb-1 block text-xs uppercase tracking-label text-muted">
+              BMR
+            </span>
+            <input
+              type="number"
+              min={500}
+              max={20000}
+              step={1}
+              className="tracker-input text-display-lg tabular-nums"
+              value={bmrInput}
+              onChange={(ev) => setBmrInput(ev.target.value)}
+            />
+          </label>
           <button
             type="button"
-            className="mt-4 rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
-            onClick={() => setDeleteOpen(true)}
+            className="tracker-btn mt-4 bg-sun"
+            onClick={saveBmr}
+            disabled={patchSettings.isPending}
           >
-            Delete account
+            {patchSettings.isPending ? "Saving…" : "Save BMR"}
           </button>
-        </section>
-      ) : null}
+        </Sticker>
 
-      <p
-        className={`mt-6 text-sm italic ${statusErr ? "text-red-600" : "text-slate-600"}`}
-        role="status"
-      >
-        {status}
-      </p>
+        {session.data?.user ? (
+          <Sticker delay={240} className="bg-hot px-6 py-6 text-cream">
+            <span className="tracker-chip bg-cream text-chip uppercase tracking-label text-ink">
+              Danger zone
+            </span>
+            <h2 className="mt-3 font-display text-display-md leading-none">
+              Delete account
+            </h2>
+            <p className="mt-2 text-sm text-cream/90">
+              Permanently delete your account and all meals, workouts, and
+              settings. This cannot be undone.
+            </p>
+            <button
+              type="button"
+              className="tracker-btn mt-4 bg-cream text-hot"
+              onClick={() => setDeleteOpen(true)}
+            >
+              Delete account
+            </button>
+          </Sticker>
+        ) : null}
 
-      <TrackerDialog
-        open={deleteOpen}
-        onClose={() => !deleteBusy && setDeleteOpen(false)}
-        title="Delete your account?"
-        description="All data linked to your account will be removed. You will be signed out."
-        primaryLabel="Delete my account"
-        primaryVariant="danger"
-        primaryDisabled={deleteBusy}
-        onPrimary={() => void confirmDeleteAccount()}
-        secondaryLabel="Cancel"
-        onSecondary={() => !deleteBusy && setDeleteOpen(false)}
-      />
+        <StatusStamp message={status} isError={statusErr} />
+
+        <TrackerDialog
+          open={deleteOpen}
+          onClose={() => !deleteBusy && setDeleteOpen(false)}
+          title="Delete your account?"
+          description="All data linked to your account will be removed. You will be signed out."
+          primaryLabel="Delete my account"
+          primaryVariant="danger"
+          primaryDisabled={deleteBusy}
+          onPrimary={() => void confirmDeleteAccount()}
+          secondaryLabel="Cancel"
+          onSecondary={() => !deleteBusy && setDeleteOpen(false)}
+        />
+      </div>
     </div>
   );
 }

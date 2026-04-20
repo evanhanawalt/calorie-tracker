@@ -1,9 +1,23 @@
 import type { Metadata, Viewport } from "next";
-import { Roboto } from "next/font/google";
+import { Caprasimo, Outfit, Roboto } from "next/font/google";
 import type { ReactNode } from "react";
 import AppProviders from "@/components/AppProviders";
 import "../styles/global.css";
 
+const caprasimo = Caprasimo({
+  weight: "400",
+  subsets: ["latin"],
+  variable: "--font-caprasimo",
+  display: "swap",
+});
+
+const outfit = Outfit({
+  subsets: ["latin"],
+  variable: "--font-outfit",
+  display: "swap",
+});
+
+/** Roboto Medium is reserved for the Google sign-in button (branding rules). */
 const roboto = Roboto({
   weight: "500",
   subsets: ["latin"],
@@ -17,6 +31,7 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   width: "device-width",
+  themeColor: "#ffe1c7",
 };
 
 export default function RootLayout({
@@ -25,7 +40,10 @@ export default function RootLayout({
   children: ReactNode;
 }>) {
   return (
-    <html lang="en" className={roboto.variable}>
+    <html
+      lang="en"
+      className={`${caprasimo.variable} ${outfit.variable} ${roboto.variable}`}
+    >
       <head>
         <link
           rel="icon"
@@ -67,7 +85,7 @@ export default function RootLayout({
         />
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
       </head>
-      <body className="min-h-screen bg-slate-100 text-slate-900">
+      <body className="min-h-dvh">
         <AppProviders>{children}</AppProviders>
       </body>
     </html>

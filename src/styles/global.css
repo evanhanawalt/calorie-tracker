@@ -1,9 +1,245 @@
 @import "tailwindcss";
 
-/* Roboto Medium for Sign in with Google (see developers.google.com/identity/branding-guidelines). */
+/*
+ * "Tracker" design tokens for the whole app.
+ *
+ * Peach/cream paper with hot-pink, sun-yellow, ocean-teal, lime and
+ * lavender accents. Everything sits on thick ink-black borders with a
+ * hard "sticker" offset shadow. Display type is Caprasimo; body is Outfit;
+ * Roboto Medium is kept only for the Google sign-in button (branding).
+ *
+ * Tokens live in Tailwind v4's @theme block so utilities are generated
+ * automatically (bg-lime, text-muted, font-display, text-display-lg,
+ * rounded-sticker, shadow-sticker, tracking-eyebrow, etc.).
+ */
+@theme {
+  --color-bg: #ffe1c7;
+  --color-cream: #fff7ea;
+  --color-paper: #ffffff;
+  --color-ink: #1b0f0a;
+  --color-muted: rgba(27, 15, 10, 0.62);
+  --color-hot: #ff3d7f;
+  --color-sun: #ffd23f;
+  --color-ocean: #2ec4b6;
+  --color-lime: #c1ff72;
+  --color-lav: #b892ff;
+
+  --font-display: var(--font-caprasimo), ui-serif, Georgia, serif;
+  --font-body:
+    var(--font-outfit), ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  --text-chip: 0.7rem;
+  --text-label: 0.9rem;
+  --text-display-xs: 1.15rem;
+  --text-display-sm: 1.5rem;
+  --text-display-md: 1.65rem;
+  --text-display-lg: 1.75rem;
+  --text-display-xl: 2rem;
+  --text-display-hero-sm: clamp(1.75rem, 5vw, 2.25rem);
+  --text-display-hero-md: clamp(2rem, 6vw, 2.75rem);
+  --text-display-hero-lg: clamp(4rem, 14vw, 9rem);
+
+  --tracking-chip: 0.18em;
+  --tracking-label: 0.2em;
+  --tracking-eyebrow: 0.25em;
+
+  --radius-sticker: 24px;
+  --radius-sticker-sm: 16px;
+  --radius-input: 14px;
+
+  --shadow-sticker: 6px 6px 0 var(--color-ink);
+  --shadow-sticker-sm: 3px 3px 0 var(--color-ink);
+  --shadow-sticker-xs: 2px 2px 0 var(--color-ink);
+}
+
+/*
+ * Non-theme CSS vars (not intended to generate utilities).
+ */
+:root {
+  --gradient-bg:
+    radial-gradient(1200px 600px at 85% -10%, #ffd0b0 0%, transparent 55%),
+    radial-gradient(900px 500px at 10% 110%, #ffc8de 0%, transparent 55%),
+    var(--color-bg);
+}
+
 @layer base {
+  html {
+    font-family: var(--font-body);
+    color: var(--color-ink);
+    background: var(--gradient-bg);
+    background-attachment: fixed;
+  }
+
+  body {
+    background: transparent;
+  }
+
+  /* Google sign-in branding: Roboto Medium stays, per identity guidelines. */
   .font-google-sign-in {
     font-family: var(--font-roboto), ui-sans-serif, system-ui, sans-serif;
     font-weight: 500;
+  }
+
+  /*
+   * Global keyboard-focus indicator. Thick ink-black outline with a small
+   * offset so any focused element gets an obvious high-contrast halo that
+   * follows the element's border-radius. Individual components layer
+   * additional tactile feedback on top (see .tracker-btn / .tracker-input below).
+   */
+  :focus-visible {
+    outline: 3px solid var(--color-ink);
+    outline-offset: 2px;
+  }
+}
+
+/*
+ * Tracker keyframes. Cards fade-up on mount; confetti drifts in place.
+ */
+@keyframes tracker-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(var(--tracker-rot, 0deg));
+  }
+  50% {
+    transform: translate3d(0, -4px, 0)
+      rotate(calc(var(--tracker-rot, 0deg) + 1deg));
+  }
+}
+
+@keyframes tracker-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/*
+ * Sticker surfaces, primary chrome. Each .tracker-* class owns the shape +
+ * sticker-shadow + focus-ring trick; background/text colors come from
+ * Tailwind utilities at the call sites (bg-cream, bg-lime, text-ink, ...).
+ */
+@layer components {
+  .tracker-sticker {
+    border: 3px solid var(--color-ink);
+    border-radius: var(--radius-sticker);
+    box-shadow: var(--shadow-sticker);
+  }
+
+  .tracker-sticker-sm {
+    border: 2px solid var(--color-ink);
+    border-radius: var(--radius-sticker-sm);
+    box-shadow: var(--shadow-sticker-sm);
+  }
+
+  /*
+   * Sticker-shadow focus ring. Elements with an asymmetric `Xpx Xpx 0 ink`
+   * drop shadow set `--tracker-sticker-shadow` to that offset; a ::after pseudo
+   * then draws a 3px ink ring with a uniform 3px gap on every side by
+   * extending further on the bottom-right so the combined element+shadow
+   * silhouette is wrapped cleanly. `border-radius: inherit` keeps the ring
+   * shape consistent with the element (pill, rounded, or full-circle).
+   */
+  .tracker-btn,
+  .tracker-sticker-btn {
+    --tracker-sticker-shadow: 3px;
+    position: relative;
+  }
+  .tracker-btn:focus-visible,
+  .tracker-sticker-btn:focus-visible {
+    outline: none;
+  }
+  .tracker-btn:focus-visible::after,
+  .tracker-sticker-btn:focus-visible::after {
+    content: "";
+    position: absolute;
+    inset: -6px calc(-6px - var(--tracker-sticker-shadow))
+      calc(-6px - var(--tracker-sticker-shadow)) -6px;
+    border: 3px solid var(--color-ink);
+    border-radius: inherit;
+    pointer-events: none;
+  }
+
+  .tracker-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border: 2px solid var(--color-ink);
+    border-radius: 9999px;
+    padding: 0.5rem 1rem;
+    background: var(--color-cream);
+    color: var(--color-ink);
+    box-shadow: var(--tracker-sticker-shadow) var(--tracker-sticker-shadow) 0
+      var(--color-ink);
+    font-weight: 600;
+    transition:
+      transform 140ms ease,
+      box-shadow 140ms ease;
+  }
+  .tracker-btn:hover:not(:disabled) {
+    --tracker-sticker-shadow: 4px;
+    transform: translate(-1px, -1px);
+  }
+  .tracker-btn:active:not(:disabled) {
+    --tracker-sticker-shadow: 1px;
+    transform: translate(2px, 2px);
+  }
+  .tracker-btn:disabled {
+    --tracker-sticker-shadow: 2px;
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  .tracker-chip {
+    --tracker-sticker-shadow: 2px;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    border: 2px solid var(--color-ink);
+    border-radius: 9999px;
+    padding: 0.2rem 0.7rem;
+    background: var(--color-cream);
+    box-shadow: var(--tracker-sticker-shadow) var(--tracker-sticker-shadow) 0
+      var(--color-ink);
+    font-size: 0.85rem;
+  }
+  .tracker-chip:focus-visible {
+    outline: none;
+  }
+  .tracker-chip:focus-visible::after {
+    content: "";
+    position: absolute;
+    inset: -6px calc(-6px - var(--tracker-sticker-shadow))
+      calc(-6px - var(--tracker-sticker-shadow)) -6px;
+    border: 3px solid var(--color-ink);
+    border-radius: inherit;
+    pointer-events: none;
+  }
+
+  .tracker-input {
+    width: 100%;
+    min-width: 0;
+    border: 2px solid var(--color-ink);
+    border-radius: var(--radius-input);
+    background: var(--color-paper);
+    padding: 0.55rem 0.85rem;
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    color: var(--color-ink);
+    outline: none;
+    box-shadow: var(--shadow-sticker-sm);
+    transition: transform 120ms ease;
+  }
+  .tracker-input::placeholder {
+    color: rgba(27, 15, 10, 0.4);
+    font-style: italic;
+  }
+  .tracker-input:focus-visible {
+    transform: translate(-1px, -1px);
   }
 }

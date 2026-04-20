@@ -18,7 +18,11 @@ export type TrackerDialogProps = {
 };
 
 /**
- * Shared modal UI for confirmations and simple prompts (native `<dialog>`).
+ * Tracker-style modal. Uses the native `<dialog>` element (so Escape,
+ * focus-trap and backdrop clicks keep working), then swaps chrome for a
+ * sticker card with a ribbon-style pill above the title.
+ *
+ * `primaryVariant="danger"` tints the pill and confirm button hot-pink.
  */
 export default function TrackerDialog({
   open,
@@ -51,15 +55,16 @@ export default function TrackerDialog({
     (onSecondary ?? onClose)();
   };
 
-  const primaryClass =
-    primaryVariant === "danger"
-      ? "rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-      : "rounded-md bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
+  const danger = primaryVariant === "danger";
+  const pillClass = danger ? "bg-hot text-cream" : "bg-lav";
+  const primaryClass = danger
+    ? "bg-hot text-cream"
+    : "bg-lime text-ink";
 
   return (
     <dialog
       ref={ref}
-      className="fixed left-1/2 top-1/2 z-50 max-h-[min(90vh,32rem)] w-[min(calc(100vw-2rem),24rem)] max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 border-0 bg-transparent p-0 backdrop:bg-black/40"
+      className="fixed left-1/2 top-1/2 z-50 max-h-[min(90vh,32rem)] w-[min(calc(100vw-2rem),26rem)] max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 border-0 bg-transparent p-0 backdrop:bg-ink/45"
       aria-labelledby={titleId}
       aria-describedby={description ? descriptionId : undefined}
       onCancel={(e) => {
@@ -71,32 +76,40 @@ export default function TrackerDialog({
       }}
     >
       <div
-        className="rounded-xl border border-slate-200 bg-white p-5 shadow-xl"
+        className="tracker-sticker relative bg-cream p-5 md:p-6"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 id={titleId} className="text-lg font-semibold text-slate-900">
+        <span
+          className={`tracker-chip mb-2 text-chip uppercase tracking-chip ${pillClass}`}
+        >
+          {danger ? "Warning" : "Confirm"}
+        </span>
+        <h2
+          id={titleId}
+          className="font-display text-display-md leading-tight"
+        >
           {title}
         </h2>
         {description ? (
           <p
             id={descriptionId}
-            className="mt-2 text-sm text-slate-600 leading-relaxed"
+            className="mt-2 text-sm leading-relaxed text-muted"
           >
             {description}
           </p>
         ) : null}
         {children ? <div className="mt-4">{children}</div> : null}
-        <div className="mt-5 flex flex-wrap justify-end gap-2">
+        <div className="mt-6 flex flex-wrap justify-end gap-3">
           <button
             type="button"
-            className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+            className="tracker-btn bg-paper"
             onClick={handleSecondary}
           >
             {secondaryLabel}
           </button>
           <button
             type="button"
-            className={primaryClass}
+            className={`tracker-btn ${primaryClass}`}
             disabled={primaryDisabled}
             onClick={onPrimary}
           >

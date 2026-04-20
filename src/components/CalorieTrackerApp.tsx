@@ -26,7 +26,7 @@ function CalorieTrackerBody() {
 
   if (session.isPending) {
     return (
-      <p className="mx-auto max-w-4xl p-8 text-center text-slate-600">
+      <p className="mx-auto max-w-4xl p-8 text-center font-display text-[1.2rem] text-muted">
         Loading…
       </p>
     );

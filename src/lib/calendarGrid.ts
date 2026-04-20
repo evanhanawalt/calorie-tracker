@@ -63,16 +63,25 @@ export const CONTRIBUTION_CALENDAR_DEFAULT_INCLUSIVE_DAYS =
 /**
  * Flat list in column-major order (each week: Sun→Sat) for CSS
  * `grid-template-rows: repeat(7, …); grid-auto-flow: column`.
+ *
+ * `anchorIso` lets callers scroll the window through history: the week
+ * containing `anchorIso` becomes the rightmost column. Defaults to
+ * `todayIso` (the current rolling window). `todayIso` still drives
+ * `isFuture` regardless of the anchor, so future cells past today are
+ * always flagged.
  */
 export function buildContributionCells(
   todayIso: string,
   numWeeks = CONTRIBUTION_CALENDAR_DEFAULT_WEEKS,
+  anchorIso?: string,
 ): ContributionCell[] {
   const today = parseIsoLocal(todayIso);
   if (Number.isNaN(today.getTime())) {
     return [];
   }
-  const endSunday = startOfWeekSunday(today);
+  const anchor = anchorIso ? parseIsoLocal(anchorIso) : today;
+  const anchorDate = Number.isNaN(anchor.getTime()) ? today : anchor;
+  const endSunday = startOfWeekSunday(anchorDate);
   const firstSunday = new Date(endSunday);
   firstSunday.setDate(firstSunday.getDate() - (numWeeks - 1) * 7);
 
