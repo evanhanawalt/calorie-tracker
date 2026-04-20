@@ -1,31 +1,28 @@
 "use client";
 
-import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useAuthSessionQuery } from "../hooks/trackerRemote";
 import {
+  clearSessionPreferredLocal,
   hasSessionPreferredLocal,
   setSessionPreferredLocal,
 } from "../lib/trackerStorageChoice";
-import { authQueryKeys } from "../lib/trackerQueryKeys";
-import LocalTrackerView from "./tracker/LocalTrackerView";
-import RemoteTrackerView from "./tracker/RemoteTrackerView";
 import TrackerStorageLanding from "./TrackerStorageLanding";
+import TrackerView from "./tracker/TrackerView";
 
 function CalorieTrackerBody() {
-  const queryClient = useQueryClient();
   const session = useAuthSessionQuery();
   const [mode, setMode] = useState<"landing" | "local">(() =>
     hasSessionPreferredLocal() ? "local" : "landing",
   );
 
+  /** Signed-in users should pick cloud vs local via landing after sign-out, not a stale session flag. */
   useEffect(() => {
-    function onFocus() {
-      void queryClient.invalidateQueries({ queryKey: authQueryKeys.session });
+    if (session.isPending) return;
+    if (session.data?.user) {
+      clearSessionPreferredLocal();
     }
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-  }, [queryClient]);
+  }, [session.data?.user, session.isPending]);
 
   if (session.isPending) {
     return (
@@ -36,7 +33,7 @@ function CalorieTrackerBody() {
   }
 
   if (session.data?.user) {
-    return <RemoteTrackerView />;
+    return <TrackerView storageMode="remote" />;
   }
 
   if (mode === "landing") {
@@ -50,24 +47,9 @@ function CalorieTrackerBody() {
     );
   }
 
-  return <LocalTrackerView />;
+  return <TrackerView storageMode="local" />;
 }
 
 export default function CalorieTrackerApp() {
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            staleTime: 30_000,
-          },
-        },
-      }),
-  );
-
-  return (
-    <QueryClientProvider client={queryClient}>
-      <CalorieTrackerBody />
-    </QueryClientProvider>
-  );
+  return <CalorieTrackerBody />;
 }

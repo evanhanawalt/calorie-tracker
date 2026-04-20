@@ -61,6 +61,18 @@ export function saveBmr(kcal: number): void {
   localStorage.setItem(BMR_STORAGE_KEY, String(rounded));
 }
 
+/** True if the user has any meal or workout rows saved locally (used for migration prompt). */
+export function hasMeaningfulLocalTrackerData(): boolean {
+  return loadFoodEntries().length > 0 || loadWorkoutEntries().length > 0;
+}
+
+/** Clears all tracker keys from localStorage (after cloud migration). */
+export function clearAllTrackerLocalStorage(): void {
+  localStorage.removeItem(FOOD_STORAGE_KEY);
+  localStorage.removeItem(WORKOUT_STORAGE_KEY);
+  localStorage.removeItem(BMR_STORAGE_KEY);
+}
+
 /** Net intake for a day: meals minus workouts (same as summary “Net”). */
 export function netCaloriesForDate(
   foodByDate: Record<string, Entry[]>,
@@ -74,18 +86,18 @@ export function netCaloriesForDate(
 
 /**
  * Fill color for a day with activity, from net calories vs BMR.
- * Bands: large surplus → red; moderate surplus; near maintenance; moderate deficit; large deficit → blue-violet.
+ * Green when net is under BMR → red when over BMR (five bands).
  */
 export function contributionColorForNetVsBmr(
   netConsumed: number,
   bmr: number,
 ): string {
   const d = netConsumed - bmr;
-  if (d > 150) return "#FF0000";
-  if (d > 50) return "#CC0033";
-  if (d >= -50) return "#990066";
-  if (d >= -150) return "#660099";
-  return "#3300CC";
+  if (d > 200) return "#e51f1f";
+  if (d > 100) return "#f2a134";
+  if (d >= -100) return "#f7e379";
+  if (d >= -200) return "#bbdb44";
+  return "#44ce1b";
 }
 
 export type ContributionLegendBand = {
@@ -93,13 +105,13 @@ export type ContributionLegendBand = {
   readonly label: string;
 };
 
-/** Legend order: largest deficit vs BMR → largest surplus. Matches `contributionColorForNetVsBmr`. */
+/** Legend order: most under BMR (green) → most over BMR (red). Matches `contributionColorForNetVsBmr`. */
 export const CONTRIBUTION_LEGEND_BANDS: readonly ContributionLegendBand[] = [
-  { color: "#3300CC", label: "Over 150 below BMR" },
-  { color: "#660099", label: "50–150 below BMR" },
-  { color: "#990066", label: "Within ±50 of BMR" },
-  { color: "#CC0033", label: "50–150 above BMR" },
-  { color: "#FF0000", label: "Over 150 above BMR" },
+  { color: "#44ce1b", label: "Over 200 kcal below BMR (net intake)" },
+  { color: "#bbdb44", label: "100–200 kcal below BMR" },
+  { color: "#f7e379", label: "Within ±100 kcal of BMR" },
+  { color: "#f2a134", label: "100–200 kcal above BMR" },
+  { color: "#e51f1f", label: "Over 200 kcal above BMR" },
 ] as const;
 
 export type TrackerState = {

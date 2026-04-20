@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Roboto } from "next/font/google";
 import type { ReactNode } from "react";
+import AppProviders from "@/components/AppProviders";
 import "../styles/global.css";
 
 const roboto = Roboto({
@@ -66,7 +67,9 @@ export default function RootLayout({
         />
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
       </head>
-      <body className="min-h-screen bg-slate-100 text-slate-900">{children}</body>
+      <body className="min-h-screen bg-slate-100 text-slate-900">
+        <AppProviders>{children}</AppProviders>
+      </body>
     </html>
   );
 }
