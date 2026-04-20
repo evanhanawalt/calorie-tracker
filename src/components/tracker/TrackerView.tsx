@@ -449,7 +449,7 @@ function HeroSticker({
       </p>
       <div className="mt-2 flex flex-wrap justify-between gap-x-6 gap-y-4">
         <div className="flex w-max max-w-full shrink-0 flex-col">
-          <p className="text-xs uppercase tracking-label text-muted leading-normal">
+          <p className="text-xs uppercase tracking-label min-w-[4ch] text-muted leading-normal">
             Net kcal
           </p>
           <p className="font-display text-display-hero-lg leading-[0.85] tabular-nums text-ink">
