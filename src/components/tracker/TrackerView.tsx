@@ -447,18 +447,20 @@ function HeroSticker({
       <p className="text-xs uppercase tracking-eyebrow text-hot">
         {isToday ? `Today · ${dateLabel}` : dateLabel}
       </p>
-      <div className="mt-2 flex flex-wrap items-end gap-6">
-        <div>
-          <p className="text-xs uppercase tracking-label text-muted">
+      <div className="mt-2 flex flex-wrap items-start gap-x-6 gap-y-4">
+        <div className="min-w-0 shrink-0 self-start">
+          <p className="text-xs uppercase tracking-label text-muted leading-normal">
             Net kcal
           </p>
           <p
-            className={"font-display text-display-hero-lg leading-[0.85] tabular-nums text-ink"}
+            className={
+              "font-display text-display-hero-lg leading-[0.85] tabular-nums text-ink"
+            }
           >
-            {loading ? "—" : net.toLocaleString()}
+            <span className="inline-block min-w-[9ch]">{loading ? "—" : net.toLocaleString()}</span>
           </p>
         </div>
-        <div className="flex flex-col gap-2">
+        <div className="ml-auto flex min-w-0 flex-col items-end gap-2">
           <Chip className="bg-ocean" label={`Consumed ${consumed}`} />
           <Chip className="bg-hot text-cream" label={`Burned ${burned}`} />
           <Chip
