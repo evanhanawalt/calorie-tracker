@@ -1,6 +1,10 @@
-## Simple in-browser calorie counter for both meals and workouts.
+## Simple to use calorie counter
+
+#### _That doesn't try to sell you anything_
 
 The UI is a [Next.js](https://nextjs.org) 16 app (App Router); API routes and Auth.js behave as before.
+
+<img width="771" height="1046" alt="Screenshot 2026-04-20 142752" src="https://github.com/user-attachments/assets/ad8e0a4e-281d-4d3f-8f7a-8d43585057b8" />
 
 ## 🧞 Commands
 
