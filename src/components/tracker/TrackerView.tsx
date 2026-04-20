@@ -3,13 +3,11 @@
 import { useCallback, useId, useMemo, useRef, useState } from "react";
 import { contributionCalendarDateBounds } from "@/lib/calendarGrid";
 import {
-  contributionColorForNetVsBmr,
-  contributionTextColorForNetVsBmr,
   DEFAULT_BMR,
   formatDateForDisplay,
   getDailyTrackerDerivations,
   getLocalTodayIso,
-  netVsBmrState,
+  netVsBmrBand,
   type Entry,
   type EntryStream,
 } from "@/lib/calorieTrackerStorage";
@@ -141,7 +139,7 @@ export default function TrackerView({ storageMode }: TrackerViewProps) {
   const getActivityDayColor = useCallback(
     (iso: string) => {
       const netConsumed = dayMap.get(iso)?.netConsumed ?? 0;
-      return contributionColorForNetVsBmr(netConsumed, bmr);
+      return netVsBmrBand(netConsumed, bmr).color;
     },
     [dayMap, bmr],
   );
@@ -419,13 +417,11 @@ function HeroSticker({
   loading: boolean;
 }) {
   const over = delta > 0;
-  const state = netVsBmrState(net, bmr);
-  const badgeBg = contributionColorForNetVsBmr(net, bmr);
-  const badgeText = contributionTextColorForNetVsBmr(net, bmr);
+  const band = netVsBmrBand(net, bmr);
   const stateLabel =
-    state === "over" ? (
+    band.state === "over" ? (
       "Over"
-    ) : state === "under" ? (
+    ) : band.state === "under" ? (
       "Under"
     ) : (
       <>
@@ -443,7 +439,7 @@ function HeroSticker({
         as="span"
         size="lg"
         className="absolute -right-3 -top-3 font-display text-center leading-tight shadow-sticker-sm"
-        style={{ backgroundColor: badgeBg, color: badgeText }}
+        style={{ backgroundColor: band.color, color: band.textColor }}
         aria-hidden
       >
         {stateLabel}
@@ -518,7 +514,7 @@ function LogPanel({
   const isFood = stream === "food";
   const accent = isFood ? FOOD_ACCENT : WORKOUT_ACCENT;
   const title = isFood ? "Meals" : "Workouts";
-  const subtitle = isFood ? "Calories consumed today" : "Calories burned today";
+  const subtitle = isFood ? "Calories consumed" : "Calories burned";
 
   return (
     <Sticker delay={delay} className="relative bg-cream px-5 py-6 md:px-7">

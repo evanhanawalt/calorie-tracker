@@ -71,67 +71,106 @@ export function clearAllTrackerLocalStorage(): void {
   localStorage.removeItem(BMR_STORAGE_KEY);
 }
 
-/**
- * Fill color for a day with activity, from net calories vs BMR.
- * Green when net is under BMR → red when over BMR (five bands).
- */
-export function contributionColorForNetVsBmr(
-  netConsumed: number,
-  bmr: number,
-): string {
-  const d = netConsumed - bmr;
-  if (d > 200) return "#e51f1f";
-  if (d > 100) return "#f2a134";
-  if (d >= -100) return "#f7e379";
-  if (d >= -200) return "#bbdb44";
-  return "#44ce1b";
-}
-
-/**
- * Legible foreground color on top of
- * {@link contributionColorForNetVsBmr}. Cream on the deep red band; ink
- * on every other band.
- */
-export function contributionTextColorForNetVsBmr(
-  netConsumed: number,
-  bmr: number,
-): string {
-  return netConsumed - bmr > 200
-    ? "var(--color-cream)"
-    : "var(--color-ink)";
-}
-
 /** Three-way bucket for the net-vs-BMR label (Under / On Target / Over). */
 export type NetVsBmrState = "under" | "onTarget" | "over";
 
 /**
- * On target when the net-vs-BMR delta is strictly between -100 and
- * +100 kcal. At exactly ±100 the user falls into the adjacent Under/Over
- * bucket.
+ * Descriptor for one horizontal band of the net-vs-BMR palette. Fields
+ * cover every visual need across the app (heatmap cell, hero badge,
+ * legend swatches/gradient) so callers never have to re-derive the band
+ * from the delta themselves.
  */
-export function netVsBmrState(
-  netConsumed: number,
-  bmr: number,
-): NetVsBmrState {
-  const d = netConsumed - bmr;
-  if (d >= 100) return "over";
-  if (d <= -100) return "under";
-  return "onTarget";
-}
-
-export type ContributionLegendBand = {
+export type NetVsBmrBand = {
+  /** Three-way coarse state the band belongs to. */
+  readonly state: NetVsBmrState;
+  /** Fill color for heatmap cells and the hero badge background. */
   readonly color: string;
+  /** Foreground color that stays legible on top of `color`. */
+  readonly textColor: string;
+  /** Human-readable description for tooltips / screen readers. */
   readonly label: string;
+  /**
+   * Inclusive lower bound of `(netConsumed - bmr)` that this band
+   * covers. The band applies whenever `delta >= minDelta` and no
+   * higher-ranked band already matched. Use `-Infinity` for the
+   * catch-all bottom band.
+   */
+  readonly minDelta: number;
 };
 
-/** Legend order: most under BMR (green) → most over BMR (red). Matches `contributionColorForNetVsBmr`. */
-export const CONTRIBUTION_LEGEND_BANDS: readonly ContributionLegendBand[] = [
-  { color: "#44ce1b", label: "Over 200 kcal below BMR (net intake)" },
-  { color: "#bbdb44", label: "100–200 kcal below BMR" },
-  { color: "#f7e379", label: "Within ±100 kcal of BMR" },
-  { color: "#f2a134", label: "100–200 kcal above BMR" },
-  { color: "#e51f1f", label: "Over 200 kcal above BMR" },
+/**
+ * All five net-vs-BMR bands, ordered from most-over to most-under.
+ *
+ * Boundaries use `>=` consistently: at exactly +100 the user is
+ * `"over"` (orange), at exactly -100 they are `"onTarget"` (yellow), at
+ * exactly -200 they are still `"under"` (lime-green), etc. Keep this
+ * list as the single source of truth for palette, thresholds, and
+ * labels — the heatmap, hero badge, legend gradient and legend
+ * tooltips all derive from it.
+ */
+export const NET_VS_BMR_BANDS: readonly NetVsBmrBand[] = [
+  {
+    state: "over",
+    color: "#e51f1f",
+    textColor: "var(--color-cream)",
+    label: "Over 200 kcal above BMR",
+    minDelta: 200,
+  },
+  {
+    state: "over",
+    color: "#f2a134",
+    textColor: "var(--color-ink)",
+    label: "100–200 kcal above BMR",
+    minDelta: 100,
+  },
+  {
+    state: "onTarget",
+    color: "#f7e379",
+    textColor: "var(--color-ink)",
+    label: "Within ±100 kcal of BMR",
+    minDelta: -100,
+  },
+  {
+    state: "under",
+    color: "#bbdb44",
+    textColor: "var(--color-ink)",
+    label: "100–200 kcal below BMR",
+    minDelta: -200,
+  },
+  {
+    state: "under",
+    color: "#44ce1b",
+    textColor: "var(--color-ink)",
+    label: "Over 200 kcal below BMR (net intake)",
+    minDelta: -Infinity,
+  },
 ] as const;
+
+/**
+ * Classify `(netConsumed - bmrKcal)` into its palette band. The band
+ * exposes everything the UI needs: `state` ("under" / "onTarget" /
+ * "over"), `color` (cell + badge background), `textColor` (legible
+ * foreground), and `label` (tooltip/aria text).
+ */
+export function netVsBmrBand(
+  netConsumed: number,
+  bmrKcal: number,
+): NetVsBmrBand {
+  const delta = netConsumed - bmrKcal;
+  for (const band of NET_VS_BMR_BANDS) {
+    if (delta >= band.minDelta) return band;
+  }
+  return NET_VS_BMR_BANDS[NET_VS_BMR_BANDS.length - 1];
+}
+
+/**
+ * Legend swatches rendered under the heatmap, ordered from
+ * most-under-BMR on the left to most-over-BMR on the right so the
+ * gradient reads naturally.
+ */
+export const CONTRIBUTION_LEGEND_BANDS: readonly NetVsBmrBand[] = [
+  ...NET_VS_BMR_BANDS,
+].reverse();
 
 export type TrackerState = {
   foodEntries: Entry[];
