@@ -1,26 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" aria-hidden="true">
   <style>
-    .calc {
-      fill: none;
-      stroke: #0f172a;
-      stroke-width: 2;
-      stroke-linecap: round;
-      stroke-linejoin: round;
+    .face {
+      fill: #fff7ea;
+      stroke: #1b0f0a;
     }
     @media (prefers-color-scheme: dark) {
-      .calc {
-        stroke: #f8fafc;
+      .face {
+        fill: #1b0f0a;
+        stroke: #ffe1c7;
       }
     }
   </style>
-  <rect class="calc" width="16" height="20" x="4" y="2" rx="2" />
-  <line class="calc" x1="8" x2="16" y1="6" y2="6" />
-  <line class="calc" x1="16" x2="16" y1="14" y2="18" />
-  <path class="calc" d="M16 10h.01" />
-  <path class="calc" d="M12 10h.01" />
-  <path class="calc" d="M8 10h.01" />
-  <path class="calc" d="M12 14h.01" />
-  <path class="calc" d="M8 14h.01" />
-  <path class="calc" d="M12 18h.01" />
-  <path class="calc" d="M8 18h.01" />
+  <rect class="face" x="2" y="2" width="28" height="28" rx="9" stroke-width="2" />
+  <rect x="7" y="14" width="6" height="11" rx="3" fill="#ff3d7f" />
+  <rect x="13" y="9" width="6" height="16" rx="3" fill="#2ec4b6" />
+  <rect x="19" y="11" width="6" height="14" rx="3" fill="#c1ff72" />
 </svg>
