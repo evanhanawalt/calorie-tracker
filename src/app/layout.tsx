@@ -27,6 +27,19 @@ const roboto = Roboto({
 
 export const metadata: Metadata = {
   title: "Calorie Tracker",
+  manifest: "/site.webmanifest",
+  icons: {
+    apple: [
+      {
+        url: "/apple-touch-icon.png",
+        sizes: "180x180",
+        type: "image/png",
+      },
+    ],
+  },
+  appleWebApp: {
+    title: "Tracker",
+  },
 };
 
 export const viewport: Viewport = {
