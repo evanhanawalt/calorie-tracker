@@ -205,7 +205,7 @@ function ContributionBand({
                 className={`h-full min-h-[20px] min-w-0 w-full max-w-full rounded-full transition-transform ${
                   cell.isFuture
                     ? "cursor-default opacity-50"
-                    : "cursor-pointer hover:scale-115"
+                    : "cursor-pointer hover:scale-115 hover:z-10"
                 }`}
                 style={{
                   backgroundColor: background,
