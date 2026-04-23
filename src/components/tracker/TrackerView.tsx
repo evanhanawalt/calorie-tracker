@@ -451,7 +451,7 @@ export default function TrackerView({ storageMode }: TrackerViewProps) {
             </div>
           </Sticker>
 
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <div className="grid mb-16 grid-cols-1 gap-6 md:grid-cols-2">
             <LogPanel
               stream="food"
               delay={240}
@@ -580,7 +580,7 @@ function HeroSticker({
       >
         {stateLabel}
       </CircleIcon>
-      <p className="text-sm uppercase tracking-eyebrow text-hot">
+      <p className="text-xs md:text-sm uppercase tracking-eyebrow text-hot">
         {isToday ? `Today · ${dateLabel}` : dateLabel}
       </p>
       <div className="mt-2 flex flex-wrap justify-between gap-x-6 gap-y-4">
