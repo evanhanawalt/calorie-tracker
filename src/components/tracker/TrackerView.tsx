@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useId, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { contributionCalendarDateBounds } from "@/lib/calendarGrid";
 import {
   DEFAULT_BMR,
@@ -24,7 +31,7 @@ import Confetti from "@/components/tracker/Confetti";
 import Sticker from "@/components/tracker/Sticker";
 import StatusStamp from "@/components/StatusStamp";
 import TrackerDialog from "@/components/TrackerDialog";
-import { SvgPlus, SvgSquarePen, SvgTrash } from "@/svgs";
+import { SvgChevronRight, SvgPlus, SvgSquarePen, SvgTrash } from "@/svgs";
 import TrackerAppMenu from "./TrackerAppMenu";
 import { STREAM_UI } from "./trackerUiConfig";
 
@@ -53,9 +60,13 @@ export default function TrackerView({ storageMode }: TrackerViewProps) {
   const [statusMessage, setStatusMessage] = useState("");
   const [statusIsError, setStatusIsError] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [historyExpanded, setHistoryExpanded] = useState(false);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const quickAddRef = useRef<HTMLDivElement>(null);
   const menuHeadingId = useId();
+  const quickAddMenuId = useId();
 
   function setStatus(message: string, isError = false) {
     setStatusMessage(message);
@@ -117,6 +128,46 @@ export default function TrackerView({ storageMode }: TrackerViewProps) {
     menuRef,
     menuButtonRef,
   });
+
+  function closeQuickAddMenu() {
+    setQuickAddOpen(false);
+  }
+
+  function openAddFromUi(stream: EntryStream) {
+    closeQuickAddMenu();
+    openAddDialog(stream);
+  }
+
+  function openEditFromUi(stream: EntryStream, entry: Entry) {
+    closeQuickAddMenu();
+    openEditDialog(stream, entry);
+  }
+
+  function openDeleteFromUi(stream: EntryStream, entry: Entry) {
+    closeQuickAddMenu();
+    openDeleteDialog(stream, entry);
+  }
+
+  useEffect(() => {
+    if (!quickAddOpen) return;
+    function onPointerDown(ev: MouseEvent | TouchEvent) {
+      const el = quickAddRef.current;
+      if (!el) return;
+      if (el.contains(ev.target as Node)) return;
+      setQuickAddOpen(false);
+    }
+    function onKeyDown(ev: KeyboardEvent) {
+      if (ev.key === "Escape") setQuickAddOpen(false);
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("touchstart", onPointerDown, { passive: true });
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("touchstart", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [quickAddOpen]);
 
   const dayMap = useMemo(() => {
     const m = new Map<string, { netConsumed: number; hasActivity: boolean }>();
@@ -249,6 +300,7 @@ export default function TrackerView({ storageMode }: TrackerViewProps) {
           </span>
           <input
             type="number"
+            inputMode="numeric"
             min={0}
             step={1}
             autoFocus
@@ -280,6 +332,7 @@ export default function TrackerView({ storageMode }: TrackerViewProps) {
           </span>
           <input
             type="number"
+            inputMode="numeric"
             min={0}
             step={1}
             autoFocus
@@ -345,28 +398,57 @@ export default function TrackerView({ storageMode }: TrackerViewProps) {
 
           <Sticker
             delay={160}
-            className="bg-cream px-4 py-6 md:px-7"
+            className={`bg-cream px-4 md:px-7 ${historyExpanded ? "py-6" : "py-4"}`}
           >
-            <div className="flex items-baseline justify-between">
+            <button
+              type="button"
+              id="tracker-history-toggle"
+              className="flex w-full items-baseline justify-between gap-3 text-left"
+              aria-expanded={historyExpanded}
+              aria-controls="tracker-history-panel"
+              onClick={() => setHistoryExpanded((open) => !open)}
+            >
               <h2 className="font-display text-display-lg leading-none">
                 History
               </h2>
-              <span className="text-sm text-muted">Select a day</span>
+              <span className="flex shrink-0 items-center gap-2">
+                {historyExpanded ? (
+                  <span className="text-sm text-muted">Select a day</span>
+                ) : null}
+                <span
+                  className="inline-flex text-ink"
+                  aria-hidden
+                >
+                  <SvgChevronRight
+                    className={`size-6 transition-transform duration-200 ${historyExpanded ? "-rotate-90" : "rotate-90"}`}
+                  />
+                </span>
+              </span>
+            </button>
+            <div
+              id="tracker-history-panel"
+              role="region"
+              aria-labelledby="tracker-history-toggle"
+              hidden={!historyExpanded}
+              className="mt-4"
+            >
+              {historyExpanded ? (
+                <>
+                  <BurnContributionCalendar
+                    todayIso={todayIso}
+                    selectedDate={selectedSummaryDate}
+                    onSelectDate={setSelectedSummaryDate}
+                    dayHasActivity={dayHasActivity}
+                    getActivityDayColor={getActivityDayColor}
+                  />
+                  {!hasAnyCalendarActivity ? (
+                    <p className="mt-4 text-center text-muted">
+                      No entries yet. Add a meal or workout below to get started.
+                    </p>
+                  ) : null}
+                </>
+              ) : null}
             </div>
-            <div className="mt-4">
-              <BurnContributionCalendar
-                todayIso={todayIso}
-                selectedDate={selectedSummaryDate}
-                onSelectDate={setSelectedSummaryDate}
-                dayHasActivity={dayHasActivity}
-                getActivityDayColor={getActivityDayColor}
-              />
-            </div>
-            {!hasAnyCalendarActivity ? (
-              <p className="mt-4 text-center text-muted">
-                No entries yet. Add a meal or workout below to get started.
-              </p>
-            ) : null}
           </Sticker>
 
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -375,22 +457,76 @@ export default function TrackerView({ storageMode }: TrackerViewProps) {
               delay={240}
               entries={listByStream.food.entries}
               total={listByStream.food.total}
-              onAdd={() => openAddDialog("food")}
-              onEdit={(entry) => openEditDialog("food", entry)}
-              onDelete={(entry) => openDeleteDialog("food", entry)}
+              onAdd={() => openAddFromUi("food")}
+              onEdit={(entry) => openEditFromUi("food", entry)}
+              onDelete={(entry) => openDeleteFromUi("food", entry)}
             />
             <LogPanel
               stream="workout"
               delay={320}
               entries={listByStream.workout.entries}
               total={listByStream.workout.total}
-              onAdd={() => openAddDialog("workout")}
-              onEdit={(entry) => openEditDialog("workout", entry)}
-              onDelete={(entry) => openDeleteDialog("workout", entry)}
+              onAdd={() => openAddFromUi("workout")}
+              onEdit={(entry) => openEditFromUi("workout", entry)}
+              onDelete={(entry) => openDeleteFromUi("workout", entry)}
             />
           </div>
         </div>
       </main>
+
+      <div
+        ref={quickAddRef}
+        className="pointer-events-none fixed bottom-[max(1rem,env(safe-area-inset-bottom,0px))] right-[max(1rem,env(safe-area-inset-right,0px))] z-30 md:hidden"
+      >
+        <div className="pointer-events-auto flex flex-col-reverse items-end gap-3">
+          <CircleIcon
+            size="lg"
+            aria-expanded={quickAddOpen}
+            aria-haspopup="menu"
+            aria-controls={quickAddMenuId}
+            onClick={() => setQuickAddOpen((open) => !open)}
+            aria-label={quickAddOpen ? "Close add menu" : "Open add menu"}
+            className="tracker-sticker-btn bg-lime text-ink shadow-sticker-sm transition-transform hover:scale-105"
+          >
+            <SvgPlus
+              className={`size-7 transition-transform duration-200 ${quickAddOpen ? "rotate-45" : ""}`}
+              aria-hidden
+            />
+          </CircleIcon>
+          <div
+            id={quickAddMenuId}
+            role="menu"
+            aria-orientation="vertical"
+            hidden={!quickAddOpen}
+            className="flex flex-col items-end gap-2"
+          >
+            {quickAddOpen ? (
+              <>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="rounded-full border-2 border-ink bg-ocean px-4 py-2.5 font-display text-sm text-ink shadow-sticker-sm transition-transform active:translate-x-px active:translate-y-px active:shadow-none"
+                  onClick={() => {
+                    openAddFromUi("food");
+                  }}
+                >
+                  Add meal
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="rounded-full border-2 border-ink bg-hot px-4 py-2.5 font-display text-sm text-cream shadow-sticker-sm transition-transform active:translate-x-px active:translate-y-px active:shadow-none"
+                  onClick={() => {
+                    openAddFromUi("workout");
+                  }}
+                >
+                  Add workout
+                </button>
+              </>
+            ) : null}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -444,7 +580,7 @@ function HeroSticker({
       >
         {stateLabel}
       </CircleIcon>
-      <p className="text-xs uppercase tracking-eyebrow text-hot">
+      <p className="text-sm uppercase tracking-eyebrow text-hot">
         {isToday ? `Today · ${dateLabel}` : dateLabel}
       </p>
       <div className="mt-2 flex flex-wrap justify-between gap-x-6 gap-y-4">
