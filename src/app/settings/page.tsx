@@ -16,12 +16,7 @@ import {
   useUserSettingsQuery,
 } from "@/hooks/trackerRemote";
 import { DEFAULT_BMR } from "@/lib/calorieTrackerStorage";
-import {
-  authQueryKeys,
-  settingsQueryKeys,
-  trackerQueryKeys,
-  type TrackerStorageMode,
-} from "@/lib/trackerQueryKeys";
+import { authQueryKeys, settingsQueryKeys, trackerQueryKeys } from "@/lib/trackerQueryKeys";
 
 /**
  * Settings page in Tracker style: BMR on a lime sticker, danger-zone on a
@@ -38,9 +33,8 @@ export default function SettingsPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
 
-  const mode: TrackerStorageMode = session.data?.user ? "remote" : "local";
-  const settingsQuery = useUserSettingsQuery(mode, !session.isPending);
-  const patchSettings = usePatchUserSettingsMutation(mode);
+  const settingsQuery = useUserSettingsQuery(!session.isPending && !!session.data?.user);
+  const patchSettings = usePatchUserSettingsMutation();
 
   useEffect(() => {
     if (settingsQuery.data) {
@@ -88,12 +82,8 @@ export default function SettingsPage() {
         throw new Error(err?.error ?? "Could not delete account.");
       }
       void queryClient.invalidateQueries({ queryKey: authQueryKeys.session });
-      void queryClient.invalidateQueries({
-        queryKey: trackerQueryKeys.forMode("remote"),
-      });
-      void queryClient.invalidateQueries({
-        queryKey: settingsQueryKeys.forMode("remote"),
-      });
+      void queryClient.invalidateQueries({ queryKey: trackerQueryKeys.root });
+      void queryClient.invalidateQueries({ queryKey: settingsQueryKeys.root });
       await startAuthSignOut();
       router.push("/");
     } catch (e) {
@@ -111,6 +101,21 @@ export default function SettingsPage() {
         <Confetti />
         <div className="relative z-10 mx-auto max-w-lg p-8 text-center font-display text-muted">
           Loading…
+        </div>
+      </div>
+    );
+  }
+
+  if (!session.data?.user) {
+    return (
+      <div className="relative min-h-dvh">
+        <Confetti />
+        <div className="relative z-10 mx-auto max-w-lg space-y-4 p-8 text-center">
+          <Brand />
+          <p className="font-display text-muted">Sign in to access settings.</p>
+          <Link href="/" className="tracker-btn bg-lime px-3 py-1.5 text-sm">
+            Go to home
+          </Link>
         </div>
       </div>
     );

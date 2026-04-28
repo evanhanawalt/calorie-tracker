@@ -7,18 +7,11 @@ import Sticker from "./tracker/Sticker";
 import SignInWithGoogleButton from "./SignInWithGoogleButton";
 import { startGoogleSignIn } from "../lib/googleSignInClient";
 
-export type TrackerStorageLandingProps = {
-  onChooseLocal: () => void;
-};
-
 /**
- * First-run gate that lets the user pick cloud (Google sign-in) or local
- * storage. Tracker styling: floating confetti behind a tilted sticker card
- * with a sun-yellow storage pill.
+ * First-run sign-in screen. Tracker styling: floating confetti behind a
+ * tilted sticker card with a sun-yellow auth pill.
  */
-export default function TrackerStorageLanding({
-  onChooseLocal,
-}: TrackerStorageLandingProps) {
+export default function TrackerStorageLanding() {
   const [googleBusy, setGoogleBusy] = useState(false);
   const [googleError, setGoogleError] = useState("");
 
@@ -43,18 +36,17 @@ export default function TrackerStorageLanding({
 
         <Sticker delay={80} className="bg-cream px-6 py-7 md:px-8 md:py-9">
           <span className="tracker-chip bg-sun" aria-hidden>
-            Storage
+            Account
           </span>
           <h1 className="mt-4 font-display text-display-hero-md leading-[0.95]">
-            Choose where to save your data.
+            Sign in to start tracking.
           </h1>
           <p className="mt-3 text-sm leading-relaxed text-muted">
-            Sign in to keep your meals and workouts in the cloud across devices,
-            or save them locally in this browser. You can switch later from the
-            menu.
+            Meals and workouts are stored on your account so your data is
+            consistent across sessions and devices.
           </p>
 
-          <div className="mt-7 flex flex-col gap-3">
+          <div className="mt-7">
             <SignInWithGoogleButton
               type="button"
               disabled={googleBusy}
@@ -63,13 +55,6 @@ export default function TrackerStorageLanding({
                 void handleGoogleSignIn();
               }}
             />
-            <button
-              type="button"
-              className="tracker-btn bg-lime"
-              onClick={onChooseLocal}
-            >
-              Use local storage
-            </button>
           </div>
 
           {googleError ? (
@@ -84,10 +69,8 @@ export default function TrackerStorageLanding({
               className="mt-0.5 inline-block h-4 w-4 shrink-0 rounded-full border-2 border-ink bg-ocean"
             />
             <p className="text-xs leading-relaxed text-muted">
-              <strong className="text-ink">Local mode</strong> keeps entries in
-              this browser only.{" "}
-              <strong className="text-ink">Google sign-in</strong> stores them
-              on the server tied to your account.
+              <strong className="text-ink">Google sign-in</strong> stores your
+              entries on the server tied to your account.
             </p>
           </div>
         </Sticker>

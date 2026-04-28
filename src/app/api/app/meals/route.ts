@@ -1,5 +1,11 @@
 import { insertMeal, listMealsForDate } from "@/db/trackerRepo";
-import { jsonData, readJsonZod, requireIsoDateQuery } from "@/lib/api/routeHttp";
+import {
+  jsonData,
+  jsonError,
+  localTodayIso,
+  readJsonZod,
+  requireIsoDateQuery,
+} from "@/lib/api/routeHttp";
 import { requireSession } from "@/lib/auth/readSession";
 import { entryPostBodySchema } from "@/lib/trackerWire";
 import { mealRowToWire } from "@/lib/trackerWireMappers";
@@ -25,6 +31,9 @@ export async function POST(request: Request) {
 
   const body = await readJsonZod(request, entryPostBodySchema);
   if (body instanceof Response) return body;
+  if (body.date > localTodayIso()) {
+    return jsonError("Date cannot be in the future.", 400);
+  }
 
   const row = await insertMeal({
     userId: session.user.id,

@@ -5,10 +5,8 @@ import {
   matchTrackerCalendarQueryKey,
   matchTrackerSummaryQueryKey,
   trackerQueryKeys,
-  type TrackerStorageMode,
 } from "./trackerQueryKeys";
 
-const REMOTE: TrackerStorageMode = "remote";
 import type { TrackerApiActionResult } from "./trackerApiReducer";
 import type { CalendarDayWire, DailySummaryWire, TrackerEntryWire } from "./trackerWire";
 
@@ -37,7 +35,7 @@ function syncCalendarsForDate(
   const netConsumed = summary.netConsumed;
   const hasActivity = summary.meals.length > 0 || summary.workouts.length > 0;
   for (const [queryKey, data] of queryClient.getQueriesData({
-    queryKey: trackerQueryKeys.forMode(REMOTE),
+    queryKey: trackerQueryKeys.root,
   })) {
     const range = matchTrackerCalendarQueryKey(queryKey);
     if (!range || !data) continue;
@@ -59,7 +57,7 @@ function patchCalendarDay(
   patch: (d: CalendarDayWire) => CalendarDayWire,
 ): void {
   for (const [queryKey, data] of queryClient.getQueriesData({
-    queryKey: trackerQueryKeys.forMode(REMOTE),
+    queryKey: trackerQueryKeys.root,
   })) {
     const range = matchTrackerCalendarQueryKey(queryKey);
     if (!range || !data) continue;
@@ -78,7 +76,7 @@ function invalidateCalendarsContainingDate(
   date: string,
 ): void {
   for (const [queryKey] of queryClient.getQueriesData({
-    queryKey: trackerQueryKeys.forMode(REMOTE),
+    queryKey: trackerQueryKeys.root,
   })) {
     const range = matchTrackerCalendarQueryKey(queryKey);
     if (!range) continue;
@@ -95,7 +93,7 @@ function applyMutateEntry(
   entry: TrackerEntryWire,
 ): void {
   const date = entry.date;
-  const summaryKey = trackerQueryKeys.summary(REMOTE, date);
+  const summaryKey = trackerQueryKeys.summary(date);
   const prev = queryClient.getQueryData<DailySummaryWire>(summaryKey);
 
   if (!prev) {
@@ -129,7 +127,7 @@ function applyDeleteEntry(
   id: string,
 ): void {
   for (const [queryKey, data] of queryClient.getQueriesData({
-    queryKey: trackerQueryKeys.forMode(REMOTE),
+    queryKey: trackerQueryKeys.root,
   })) {
     if (matchTrackerSummaryQueryKey(queryKey) === undefined || !data) continue;
     const summary = data as DailySummaryWire;
@@ -147,7 +145,7 @@ function applyDeleteEntry(
     return;
   }
 
-  void queryClient.invalidateQueries({ queryKey: trackerQueryKeys.forMode(REMOTE) });
+  void queryClient.invalidateQueries({ queryKey: trackerQueryKeys.root });
 }
 
 /**

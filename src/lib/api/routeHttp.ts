@@ -39,6 +39,17 @@ export function jsonError(message: string, status: number): Response {
   return jsonData({ error: message }, status);
 }
 
+/**
+ * Resolve "today" as a local calendar date (yyyy-mm-dd), matching the app's
+ * date semantics used by the client.
+ */
+export function localTodayIso(now = new Date()): string {
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 export function requireIsoDateQuery(
   request: Request,
   paramName: string,

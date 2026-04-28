@@ -20,11 +20,9 @@ import {
 } from "@/lib/calorieTrackerStorage";
 import { useAuthSessionQuery } from "@/hooks/trackerRemote";
 import { useInvalidateAuthOnFocus } from "@/hooks/useInvalidateAuthOnFocus";
-import { useMigrationPrompt } from "@/hooks/useMigrationPrompt";
 import { useTrackerEntryActions } from "@/hooks/useTrackerEntryActions";
 import { useTrackerMenuDismiss } from "@/hooks/useTrackerMenuDismiss";
 import { useTrackerQueries } from "@/hooks/useTrackerQueries";
-import type { TrackerStorageMode } from "@/lib/trackerQueryKeys";
 import BurnContributionCalendar from "@/components/BurnContributionCalendar";
 import CircleIcon from "@/components/tracker/CircleIcon";
 import Confetti from "@/components/tracker/Confetti";
@@ -35,17 +33,12 @@ import { SvgChevronRight, SvgPlus, SvgSquarePen, SvgTrash } from "@/svgs";
 import TrackerAppMenu from "./TrackerAppMenu";
 import { STREAM_UI } from "./trackerUiConfig";
 
-type TrackerViewProps = {
-  storageMode: TrackerStorageMode;
-};
-
 /**
  * Main tracker page (Tracker style). Keeps the same hook wiring — auth,
- * migration prompts, local/remote queries, entry mutations — but renders
- * everything on flat sticker cards with chunky chips and the dot-style
- * heatmap.
+ * remote queries, and entry mutations — but renders everything on flat
+ * sticker cards with chunky chips and the dot-style heatmap.
  */
-export default function TrackerView({ storageMode }: TrackerViewProps) {
+export default function TrackerView() {
   const authSession = useAuthSessionQuery();
 
   const todayIso = getLocalTodayIso();
@@ -79,22 +72,7 @@ export default function TrackerView({ storageMode }: TrackerViewProps) {
     calendarQuery,
     trackerMut,
     derivedSummaryError,
-  } = useTrackerQueries(
-    storageMode,
-    selectedSummaryDate,
-    calendarStart,
-    calendarEnd,
-  );
-
-  const {
-    migrationOpen,
-    migrationReplaceOpen,
-    migrationBusy,
-    setMigrationReplaceOpen,
-    migrateLocalToCloud,
-    declineMigration,
-    onMigrationDialogClose,
-  } = useMigrationPrompt(storageMode, setStatus);
+  } = useTrackerQueries(selectedSummaryDate, calendarStart, calendarEnd);
 
   const {
     addTarget,
@@ -260,31 +238,6 @@ export default function TrackerView({ storageMode }: TrackerViewProps) {
       <Confetti />
 
       <TrackerDialog
-        open={migrationOpen}
-        onClose={onMigrationDialogClose}
-        title="Save local data to your account?"
-        description="Looks like you've been tracking your calories locally. Now that you have an account, you can transfer this data. We'll delete the copy stored in your browser after a successful upload."
-        primaryLabel="Transfer data"
-        primaryDisabled={migrationBusy}
-        onPrimary={() => void migrateLocalToCloud(false)}
-        secondaryLabel="Keep data local"
-        onSecondary={() => declineMigration()}
-      />
-
-      <TrackerDialog
-        open={migrationReplaceOpen}
-        onClose={() => setMigrationReplaceOpen(false)}
-        title="Replace account data?"
-        description="Your account already has meals or workouts. Uploading will replace all of that data with the entries in your browser."
-        primaryLabel="Replace and upload"
-        primaryVariant="danger"
-        primaryDisabled={migrationBusy}
-        onPrimary={() => void migrateLocalToCloud(true)}
-        secondaryLabel="Cancel"
-        onSecondary={() => setMigrationReplaceOpen(false)}
-      />
-
-      <TrackerDialog
         open={!!addTarget}
         onClose={closeAddDialog}
         title={addTitle}
@@ -361,7 +314,6 @@ export default function TrackerView({ storageMode }: TrackerViewProps) {
       />
 
       <TrackerAppMenu
-        storageMode={storageMode}
         menuOpen={menuOpen}
         setMenuOpen={setMenuOpen}
         menuRef={menuRef}
@@ -370,7 +322,6 @@ export default function TrackerView({ storageMode }: TrackerViewProps) {
         userName={displayName}
         userEmail={displayEmail}
         authPending={authSession.isPending}
-        onSignInError={(msg) => setStatus(msg, true)}
         onSignOutError={(msg) => setStatus(msg, true)}
       />
 

@@ -1,13 +1,9 @@
 import { AUTH_BASE_PATH } from "./auth/authPaths";
-import { clearSessionPreferredLocal } from "./trackerStorageChoice";
 
 /**
  * Signs out via Auth.js (same POST as the default sign-out page): CSRF + POST `/signout`.
- * Clears the session “prefer local” flag so the next load shows the landing page.
  */
 export async function startAuthSignOut(): Promise<void> {
-  clearSessionPreferredLocal();
-
   const csrfRes = await fetch(`${AUTH_BASE_PATH}/csrf`, {
     credentials: "same-origin",
     headers: { Accept: "application/json" },

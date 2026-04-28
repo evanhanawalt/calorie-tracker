@@ -5,23 +5,19 @@ import { useQueryClient } from "@tanstack/react-query";
 import type { Dispatch, SetStateAction } from "react";
 import Brand from "@/components/tracker/Brand";
 import { startAuthSignOut } from "@/lib/authSignOutClient";
-import { startGoogleSignIn } from "@/lib/googleSignInClient";
 import {
   authQueryKeys,
   settingsQueryKeys,
   trackerQueryKeys,
-  type TrackerStorageMode,
 } from "@/lib/trackerQueryKeys";
 import {
   SvgGear,
   SvgGitHubMark,
-  SvgGoogleMark,
   SvgHamburger,
   SvgLogOut,
 } from "@/svgs";
 
 type TrackerAppMenuProps = {
-  storageMode: TrackerStorageMode;
   menuOpen: boolean;
   setMenuOpen: Dispatch<SetStateAction<boolean>>;
   menuRef: React.RefObject<HTMLDivElement | null>;
@@ -30,7 +26,6 @@ type TrackerAppMenuProps = {
   userName?: string | null;
   userEmail?: string | null;
   authPending?: boolean;
-  onSignInError: (message: string) => void;
   onSignOutError: (message: string) => void;
 };
 
@@ -39,7 +34,6 @@ type TrackerAppMenuProps = {
  * hamburger that pops a sticker-card menu with account + sign-in controls.
  */
 export default function TrackerAppMenu({
-  storageMode,
   menuOpen,
   setMenuOpen,
   menuRef,
@@ -48,22 +42,16 @@ export default function TrackerAppMenu({
   userName,
   userEmail,
   authPending,
-  onSignInError,
   onSignOutError,
 }: TrackerAppMenuProps) {
   const queryClient = useQueryClient();
-  const isRemote = storageMode === "remote";
-  const menuId = isRemote ? "app-menu-remote" : "app-menu-local";
+  const menuId = "app-menu";
 
   async function handleSignOut() {
     setMenuOpen(false);
     void queryClient.invalidateQueries({ queryKey: authQueryKeys.session });
-    void queryClient.invalidateQueries({
-      queryKey: trackerQueryKeys.forMode("remote"),
-    });
-    void queryClient.invalidateQueries({
-      queryKey: settingsQueryKeys.forMode("remote"),
-    });
+    void queryClient.invalidateQueries({ queryKey: trackerQueryKeys.root });
+    void queryClient.invalidateQueries({ queryKey: settingsQueryKeys.root });
     try {
       await startAuthSignOut();
     } catch {
@@ -118,18 +106,16 @@ export default function TrackerAppMenu({
                   Menu
                 </h2>
 
-                {isRemote ? (
-                  <div className="px-3 pb-3 pt-1">
-                    <p className="truncate font-display text-display-xs leading-tight">
-                      {userName?.trim() || "Account"}
+                <div className="px-3 pb-3 pt-1">
+                  <p className="truncate font-display text-display-xs leading-tight">
+                    {userName?.trim() || "Account"}
+                  </p>
+                  {userEmail ? (
+                    <p className="mt-0.5 truncate text-sm italic text-muted">
+                      {userEmail}
                     </p>
-                    {userEmail ? (
-                      <p className="mt-0.5 truncate text-sm italic text-muted">
-                        {userEmail}
-                      </p>
-                    ) : null}
-                  </div>
-                ) : null}
+                  ) : null}
+                </div>
 
                 <MenuItem>
                   <Link
@@ -147,45 +133,21 @@ export default function TrackerAppMenu({
                   role="presentation"
                 />
 
-                {isRemote ? (
-                  <MenuItem>
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-hot hover:bg-bg"
-                      onClick={() => void handleSignOut()}
-                    >
-                      <SvgLogOut className="size-5 shrink-0" />
-                      Sign out
-                    </button>
-                  </MenuItem>
-                ) : (
-                  <MenuItem>
-                    {authPending ? (
-                      <p className="px-3 py-2 text-center text-xs italic text-muted">
-                        checking sign-in…
-                      </p>
-                    ) : null}
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm hover:bg-bg"
-                      onClick={() => {
-                        setMenuOpen(false);
-                        void (async () => {
-                          try {
-                            await startGoogleSignIn();
-                          } catch {
-                            onSignInError(
-                              "Could not start sign-in. Check your connection and try again.",
-                            );
-                          }
-                        })();
-                      }}
-                    >
-                      <SvgGoogleMark className="size-5 shrink-0" />
-                      Sign in with Google
-                    </button>
-                  </MenuItem>
-                )}
+                <MenuItem>
+                  {authPending ? (
+                    <p className="px-3 py-2 text-center text-xs italic text-muted">
+                      checking sign-in…
+                    </p>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-hot hover:bg-bg"
+                    onClick={() => void handleSignOut()}
+                  >
+                    <SvgLogOut className="size-5 shrink-0" />
+                    Sign out
+                  </button>
+                </MenuItem>
               </div>
             ) : null}
           </div>
