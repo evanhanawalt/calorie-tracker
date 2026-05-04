@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import type { Entry, EntryStream, TrackerAction } from "@/lib/calorieTrackerStorage";
+import type { Entry, EntryStream, TrackerAction } from "@/lib/trackerDomain";
 import {
   isLogDateAllowed,
   parseNonNegativeCalories,

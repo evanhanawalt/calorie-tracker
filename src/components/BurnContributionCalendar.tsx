@@ -10,7 +10,7 @@ import {
 import {
   CONTRIBUTION_LEGEND_BANDS,
   formatDateForDisplay,
-} from "../lib/calorieTrackerStorage";
+} from "../lib/trackerDomain";
 import { SvgChevronLeft, SvgChevronRight } from "../svgs";
 
 type Props = {

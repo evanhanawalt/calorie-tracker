@@ -1,6 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
-import type { EntryStream } from "./calorieTrackerStorage";
-import { sumCalories } from "./calorieTrackerStorage";
+import type { EntryStream } from "./trackerDomain";
+import { sumCalories } from "./trackerDomain";
 import {
   matchTrackerCalendarQueryKey,
   matchTrackerSummaryQueryKey,

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { TrackerAction } from "../lib/calorieTrackerStorage";
+import type { TrackerAction } from "../lib/trackerDomain";
 import {
   fetchCalendarDays,
   fetchDailySummary,

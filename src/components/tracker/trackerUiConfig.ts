@@ -1,4 +1,4 @@
-import type { EntryStream } from "../../lib/calorieTrackerStorage";
+import type { EntryStream } from "../../lib/trackerDomain";
 
 export type { EntryStream };
 

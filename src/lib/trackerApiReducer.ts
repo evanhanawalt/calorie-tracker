@@ -1,12 +1,4 @@
-import type {
-  EntryStream,
-  TrackerAction,
-  TrackerState,
-} from "./calorieTrackerStorage";
-import {
-  getInitialTrackerState,
-  trackerReducer,
-} from "./calorieTrackerStorage";
+import type { EntryStream, TrackerAction } from "./trackerDomain";
 import {
   deleteMealApi,
   deleteWorkoutApi,
@@ -27,7 +19,7 @@ export type TrackerApiActionResult =
   | { kind: "deleteEntry"; stream: EntryStream; id: string };
 
 /**
- * Applies the same logical actions as `trackerReducer`, but persists via `/api/app/*`.
+ * Applies tracker mutations and persists via `/api/app/*`.
  * Intended for use inside TanStack Query `mutationFn` (not a synchronous React reducer).
  */
 export async function runTrackerApiAction(
@@ -63,58 +55,6 @@ export async function runTrackerApiAction(
       }
       await deleteWorkoutApi(action.id);
       return { kind: "deleteEntry", stream: "workout", id: action.id };
-    }
-  }
-}
-
-function entriesForStream(state: TrackerState, stream: EntryStream) {
-  return stream === "food" ? state.foodEntries : state.workoutEntries;
-}
-
-/**
- * Same logical actions as `runTrackerApiAction`, persisting via `trackerReducer` + localStorage.
- */
-export function runLocalTrackerAction(
-  action: TrackerAction,
-): Promise<TrackerApiActionResult> {
-  const before = getInitialTrackerState();
-  const after = trackerReducer(before, action);
-
-  switch (action.type) {
-    case "addEntry": {
-      const list = entriesForStream(after, action.stream).filter(
-        (e) => e.date === action.date,
-      );
-      if (list.length === 0) {
-        throw new Error("Local add: entry not found");
-      }
-      const entry = list.reduce((a, b) =>
-        a.displayOrder >= b.displayOrder ? a : b,
-      );
-      return Promise.resolve({
-        kind: "mutateEntry",
-        stream: action.stream,
-        mode: "add",
-        entry,
-      });
-    }
-    case "updateEntryCalories": {
-      const list = entriesForStream(after, action.stream);
-      const entry = list.find((e) => e.id === action.id);
-      if (!entry) throw new Error("Local update: entry not found");
-      return Promise.resolve({
-        kind: "mutateEntry",
-        stream: action.stream,
-        mode: "update",
-        entry,
-      });
-    }
-    case "deleteEntry": {
-      return Promise.resolve({
-        kind: "deleteEntry",
-        stream: action.stream,
-        id: action.id,
-      });
     }
   }
 }

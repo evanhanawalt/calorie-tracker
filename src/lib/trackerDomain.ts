@@ -1,11 +1,6 @@
-import { newLocalEntryId, normalizeStoredTrackerEntries } from "./trackerEntryNormalize";
 import type { TrackerEntryWire } from "./trackerWire";
 
-export const FOOD_STORAGE_KEY = "calorie_tracker_food_entries";
-export const WORKOUT_STORAGE_KEY = "calorie_tracker_workout_entries";
-export const BMR_STORAGE_KEY = "calorie_tracker_bmr";
-
-/** Default basal metabolic rate (kcal/day); overridden via menu → localStorage. */
+/** Default basal metabolic rate (kcal/day) before settings load; persisted via user settings API. */
 export const DEFAULT_BMR = 2000;
 
 export type Entry = TrackerEntryWire;
@@ -17,58 +12,6 @@ export function getLocalTodayIso(): string {
   const m = String(now.getMonth() + 1).padStart(2, "0");
   const d = String(now.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
-}
-
-function safeParseArray(jsonValue: string | null): unknown[] {
-  try {
-    const parsed = JSON.parse(jsonValue || "[]");
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-export function loadFoodEntries(): Entry[] {
-  return normalizeStoredTrackerEntries(
-    safeParseArray(localStorage.getItem(FOOD_STORAGE_KEY)),
-  );
-}
-
-export function loadWorkoutEntries(): Entry[] {
-  return normalizeStoredTrackerEntries(
-    safeParseArray(localStorage.getItem(WORKOUT_STORAGE_KEY)),
-  );
-}
-
-function saveEntries(food: Entry[], workouts: Entry[]): void {
-  localStorage.setItem(FOOD_STORAGE_KEY, JSON.stringify(food));
-  localStorage.setItem(WORKOUT_STORAGE_KEY, JSON.stringify(workouts));
-}
-
-export function loadBmr(): number {
-  const raw = localStorage.getItem(BMR_STORAGE_KEY);
-  if (raw === null) return DEFAULT_BMR;
-  const n = Number(raw);
-  if (!Number.isFinite(n) || n <= 0) return DEFAULT_BMR;
-  return Math.round(n);
-}
-
-export function saveBmr(kcal: number): void {
-  const rounded = Math.round(kcal);
-  if (!Number.isFinite(rounded) || rounded <= 0) return;
-  localStorage.setItem(BMR_STORAGE_KEY, String(rounded));
-}
-
-/** True if the user has any meal or workout rows saved locally (used for migration prompt). */
-export function hasMeaningfulLocalTrackerData(): boolean {
-  return loadFoodEntries().length > 0 || loadWorkoutEntries().length > 0;
-}
-
-/** Clears all tracker keys from localStorage (after cloud migration). */
-export function clearAllTrackerLocalStorage(): void {
-  localStorage.removeItem(FOOD_STORAGE_KEY);
-  localStorage.removeItem(WORKOUT_STORAGE_KEY);
-  localStorage.removeItem(BMR_STORAGE_KEY);
 }
 
 /** Three-way bucket for the net-vs-BMR label (Under / On Target / Over). */
@@ -172,20 +115,8 @@ export const CONTRIBUTION_LEGEND_BANDS: readonly NetVsBmrBand[] = [
   ...NET_VS_BMR_BANDS,
 ].reverse();
 
-export type TrackerState = {
-  foodEntries: Entry[];
-  workoutEntries: Entry[];
-};
-
 /** Which parallel entry list a mutation targets (meals vs workouts). */
 export type EntryStream = "food" | "workout";
-
-export function getInitialTrackerState(): TrackerState {
-  return {
-    foodEntries: loadFoodEntries(),
-    workoutEntries: loadWorkoutEntries(),
-  };
-}
 
 export type TrackerAction =
   | { type: "addEntry"; stream: EntryStream; date: string; calories: number }
@@ -196,61 +127,6 @@ export type TrackerAction =
       calories: number;
     }
   | { type: "deleteEntry"; stream: EntryStream; id: string };
-
-function persistStreamEntries(
-  state: TrackerState,
-  stream: EntryStream,
-  nextForStream: Entry[],
-): TrackerState {
-  if (stream === "food") {
-    saveEntries(nextForStream, state.workoutEntries);
-    return { ...state, foodEntries: nextForStream };
-  }
-  saveEntries(state.foodEntries, nextForStream);
-  return { ...state, workoutEntries: nextForStream };
-}
-
-function entriesForStream(state: TrackerState, stream: EntryStream): Entry[] {
-  return stream === "food" ? state.foodEntries : state.workoutEntries;
-}
-
-/**
- * Applies mutations and persists to `localStorage` on every transition.
- */
-export function trackerReducer(
-  state: TrackerState,
-  action: TrackerAction,
-): TrackerState {
-  switch (action.type) {
-    case "addEntry": {
-      const list = entriesForStream(state, action.stream);
-      const nextDisplayOrder = getNextDisplayOrder(list, action.date);
-      const nextForStream = [
-        ...list,
-        {
-          id: newLocalEntryId(),
-          date: action.date,
-          calories: Math.max(0, Math.round(action.calories)),
-          displayOrder: nextDisplayOrder,
-        },
-      ];
-      return persistStreamEntries(state, action.stream, nextForStream);
-    }
-    case "updateEntryCalories": {
-      const roundCal = Math.max(0, Math.round(action.calories));
-      const list = entriesForStream(state, action.stream);
-      const nextForStream = list.map((e) =>
-        e.id === action.id ? { ...e, calories: roundCal } : e,
-      );
-      return persistStreamEntries(state, action.stream, nextForStream);
-    }
-    case "deleteEntry": {
-      const list = entriesForStream(state, action.stream);
-      const nextForStream = list.filter((e) => e.id !== action.id);
-      return persistStreamEntries(state, action.stream, nextForStream);
-    }
-  }
-}
 
 export function getNextDisplayOrder(entries: Entry[], date: string): number {
   const dayEntries = entries.filter((entry) => entry.date === date);

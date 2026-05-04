@@ -17,7 +17,7 @@ import {
   netVsBmrBand,
   type Entry,
   type EntryStream,
-} from "@/lib/calorieTrackerStorage";
+} from "@/lib/trackerDomain";
 import { useAuthSessionQuery } from "@/hooks/trackerRemote";
 import { useInvalidateAuthOnFocus } from "@/hooks/useInvalidateAuthOnFocus";
 import { useTrackerEntryActions } from "@/hooks/useTrackerEntryActions";

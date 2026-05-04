@@ -15,7 +15,7 @@ import {
   usePatchUserSettingsMutation,
   useUserSettingsQuery,
 } from "@/hooks/trackerRemote";
-import { DEFAULT_BMR } from "@/lib/calorieTrackerStorage";
+import { DEFAULT_BMR } from "@/lib/trackerDomain";
 import { authQueryKeys, settingsQueryKeys, trackerQueryKeys } from "@/lib/trackerQueryKeys";
 
 /**
