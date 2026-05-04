@@ -1,0 +1,13 @@
+---
+description: Run the test suite after substantive tracker or API changes
+globs: src/lib/**,src/db/**,src/app/api/**
+alwaysApply: false
+---
+
+After editing files under `src/lib/`, `src/db/`, or `src/app/api/`, run:
+
+```bash
+npm run test
+```
+
+If you changed TypeScript/React surface area broadly, also run `npm run lint` before finishing.
