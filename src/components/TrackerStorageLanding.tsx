@@ -2,14 +2,13 @@
 
 import { useState } from "react";
 import Brand from "./tracker/Brand";
-import Confetti from "./tracker/Confetti";
 import Sticker from "./tracker/Sticker";
 import SignInWithGoogleButton from "./SignInWithGoogleButton";
 import { startGoogleSignIn } from "../lib/googleSignInClient";
 
 /**
- * First-run sign-in screen. Tracker styling: floating confetti behind a
- * tilted sticker card with a sun-yellow auth pill.
+ * First-run sign-in screen. Tracker styling: tilted sticker card with a
+ * sun-yellow auth pill.
  */
 export default function TrackerStorageLanding() {
   const [googleBusy, setGoogleBusy] = useState(false);
@@ -30,7 +29,6 @@ export default function TrackerStorageLanding() {
 
   return (
     <div className="relative min-h-dvh">
-      <Confetti />
       <div className="relative z-10 mx-auto flex min-h-dvh max-w-lg flex-col justify-center gap-6 p-6 md:p-10">
         <Brand tagline="Track meals, workouts, and net calories." />
 

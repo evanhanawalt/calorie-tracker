@@ -93,19 +93,8 @@
 }
 
 /*
- * Tracker keyframes. Cards fade-up on mount; confetti drifts in place.
+ * Tracker keyframes. Cards fade-up on mount.
  */
-@keyframes tracker-drift {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0) rotate(var(--tracker-rot, 0deg));
-  }
-  50% {
-    transform: translate3d(0, -4px, 0)
-      rotate(calc(var(--tracker-rot, 0deg) + 1deg));
-  }
-}
-
 @keyframes tracker-fade-up {
   from {
     opacity: 0;

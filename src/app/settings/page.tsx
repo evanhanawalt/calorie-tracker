@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Brand from "@/components/tracker/Brand";
-import Confetti from "@/components/tracker/Confetti";
 import Sticker from "@/components/tracker/Sticker";
 import StatusStamp from "@/components/StatusStamp";
 import TrackerDialog from "@/components/TrackerDialog";
@@ -98,7 +97,6 @@ export default function SettingsPage() {
   if (session.isPending) {
     return (
       <div className="relative min-h-dvh">
-        <Confetti />
         <div className="relative z-10 mx-auto max-w-lg p-8 text-center font-display text-muted">
           Loading…
         </div>
@@ -109,7 +107,6 @@ export default function SettingsPage() {
   if (!session.data?.user) {
     return (
       <div className="relative min-h-dvh">
-        <Confetti />
         <div className="relative z-10 mx-auto max-w-lg space-y-4 p-8 text-center">
           <Brand />
           <p className="font-display text-muted">Sign in to access settings.</p>
@@ -123,7 +120,6 @@ export default function SettingsPage() {
 
   return (
     <div className="relative min-h-dvh">
-      <Confetti />
       <div className="relative z-10 mx-auto max-w-lg space-y-6 p-4 md:p-10">
         <div className="flex items-center justify-between gap-4">
           <Brand />

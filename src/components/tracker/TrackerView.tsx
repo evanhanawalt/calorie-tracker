@@ -25,7 +25,6 @@ import { useTrackerMenuDismiss } from "@/hooks/useTrackerMenuDismiss";
 import { useTrackerQueries } from "@/hooks/useTrackerQueries";
 import BurnContributionCalendar from "@/components/BurnContributionCalendar";
 import CircleIcon from "@/components/tracker/CircleIcon";
-import Confetti from "@/components/tracker/Confetti";
 import Sticker from "@/components/tracker/Sticker";
 import StatusStamp from "@/components/StatusStamp";
 import TrackerDialog from "@/components/TrackerDialog";
@@ -235,8 +234,6 @@ export default function TrackerView() {
 
   return (
     <div className="relative">
-      <Confetti />
-
       <TrackerDialog
         open={!!addTarget}
         onClose={closeAddDialog}
@@ -427,7 +424,7 @@ export default function TrackerView() {
 
       <div
         ref={quickAddRef}
-        className="pointer-events-none fixed bottom-[max(1rem,env(safe-area-inset-bottom,0px))] right-[max(1rem,env(safe-area-inset-right,0px))] z-30 md:hidden"
+        className="pointer-events-none fixed bottom-[max(1rem,env(safe-area-inset-bottom,0px))] right-[max(1rem,env(safe-area-inset-right,0px))] z-30"
       >
         <div className="pointer-events-auto flex flex-col-reverse items-end gap-3">
           <CircleIcon
@@ -456,7 +453,7 @@ export default function TrackerView() {
                 <button
                   type="button"
                   role="menuitem"
-                  className="rounded-full border-2 border-ink bg-ocean px-4 py-2.5 font-display text-sm text-ink shadow-sticker-sm transition-transform active:translate-x-px active:translate-y-px active:shadow-none"
+                  className="flex h-16 w-48 items-center justify-center rounded-full border-2 border-ink bg-ocean font-display text-sm text-ink shadow-sticker-sm transition-transform active:translate-x-px active:translate-y-px active:shadow-none"
                   onClick={() => {
                     openAddFromUi("food");
                   }}
@@ -466,7 +463,7 @@ export default function TrackerView() {
                 <button
                   type="button"
                   role="menuitem"
-                  className="rounded-full border-2 border-ink bg-hot px-4 py-2.5 font-display text-sm text-cream shadow-sticker-sm transition-transform active:translate-x-px active:translate-y-px active:shadow-none"
+                  className="flex h-16 w-48 items-center justify-center rounded-full border-2 border-ink bg-hot font-display text-sm text-cream shadow-sticker-sm transition-transform active:translate-x-px active:translate-y-px active:shadow-none"
                   onClick={() => {
                     openAddFromUi("workout");
                   }}
